@@ -1,0 +1,15 @@
+name: px4_offboard
+autopilot: px4
+# companion computer in Offboard: velocity setpoints in the local and the body frame, then Hold
+steps:
+  - takeoff: 10
+  - velocity: {vx: 3, frame: local, seconds: 8}
+  - fly: 5
+  - velocity: {vx: 2, vy: 2, frame: body, seconds: 8}
+  - fly: 5
+  - velocity: {vz: -1, frame: local, seconds: 5}
+  - mode: AUTO.LAND
+  - wait_disarm: 120
+expect:
+  vel_err_mps_1: {lt: 1.0}
+  vel_err_mps_2: {lt: 1.0}

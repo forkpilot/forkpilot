@@ -1,0 +1,22 @@
+{
+ "case": "rtl_loiter_long",
+ "split": "dev",
+ "branch": "bench/rtl_loiter_long",
+ "good": "cafe67457776027a1bad6e165c409828c1a851e5",
+ "bad": "9d6a8b9b6ccf8c011105a31bf9484ddbc46d11cf",
+ "culprit": "e24de92140b3ac1675da05dc2e96dee8d1256d45",
+ "related": [
+  "e24de92140b3ac1675da05dc2e96dee8d1256d45"
+ ],
+ "positions": [
+  22
+ ],
+ "commits": 31,
+ "expect": {
+  "wind_hover": "DRIFT"
+ },
+ "kind": "intentional",
+ "intent": "give the operator time to abort an automatic landing",
+ "root_cause": "RTL loiter above home raised from 5 s to 15 s, adding 10 s to every RTL",
+ "good_fix": "intentional; use the RTL_LOIT_TIME parameter and re-baseline"
+}

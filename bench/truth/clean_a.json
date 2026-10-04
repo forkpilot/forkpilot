@@ -1,0 +1,16 @@
+{
+ "case": "clean_a",
+ "split": "dev",
+ "branch": "bench/clean_a",
+ "good": "cafe67457776027a1bad6e165c409828c1a851e5",
+ "bad": "737889d88a22a2092b2421863a1cd4ce509d1813",
+ "culprit": null,
+ "related": [],
+ "positions": [],
+ "commits": 30,
+ "expect": {},
+ "kind": "clean",
+ "intent": "no behaviour change",
+ "root_cause": "none",
+ "good_fix": "none"
+}

@@ -1,0 +1,8 @@
+name: gps_loss
+steps:
+  - takeoff: 20
+  - goto: [40, 0, 20]
+  - set_param: {SIM_GPS1_ENABLE: 0}
+  - wait_disarm: 240
+expect:
+  failsafe_reaction_s: {lt: 15}

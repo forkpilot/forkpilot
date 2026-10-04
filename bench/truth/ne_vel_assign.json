@@ -1,0 +1,23 @@
+{
+ "case": "ne_vel_assign",
+ "split": "dev",
+ "branch": "bench/ne_vel_assign",
+ "good": "cafe67457776027a1bad6e165c409828c1a851e5",
+ "bad": "bc2e397c5bc6ff01d11d7fdd22dbc004424de7ba",
+ "culprit": "29b614b17379c078153de597f6a32e844777d4c1",
+ "related": [
+  "29b614b17379c078153de597f6a32e844777d4c1"
+ ],
+ "positions": [
+  7
+ ],
+ "commits": 31,
+ "expect": {
+  "auto_mission": "FAIL",
+  "wind_hover": "DRIFT"
+ },
+ "kind": "defect",
+ "intent": "pure refactor, no behaviour change intended",
+ "root_cause": "'+=' became '=', discarding the position-P correction: the horizontal position controller no longer corrects position error, only follows feedforward",
+ "good_fix": "restore '+=' so the P-term output and feedforward are summed"
+}

@@ -1,0 +1,21 @@
+name: quadplane_modes
+vehicle: plane
+frame: quadplane
+# pilot-flown VTOL: QLOITER takeoff and hover, CRUISE (forward transition), a bank turn on the
+# stick, QLOITER again (back transition and stop), QLAND
+steps:
+  - takeoff: 25
+  - hold: 10
+  - mode: CRUISE
+  - fly: 30
+  - sticks: {roll: 1700}
+  - fly: 8
+  - sticks: {roll: 1500}
+  - fly: 10
+  - mode: QLOITER
+  - fly: 20
+  - mode: QLAND
+  - wait_disarm: 120
+expect:
+  hold_drift_max_m: {lt: 3}
+  touchdown_speed_mps: {lt: 2}

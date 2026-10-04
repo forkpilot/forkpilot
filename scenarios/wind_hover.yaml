@@ -1,0 +1,10 @@
+name: wind_hover
+params: {SIM_WIND_SPD: 8, SIM_WIND_DIR: 270, SIM_WIND_TURB: 2}
+steps:
+  - takeoff: 10
+  - hold: 30
+  - mode: RTL
+  - wait_disarm: 180
+expect:
+  hold_drift_max_m: {lt: 4.0}
+  landing_offset_m: {lt: 3.0}

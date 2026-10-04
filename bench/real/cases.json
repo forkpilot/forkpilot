@@ -1,0 +1,208 @@
+{
+ "_doc": [
+  "Real Copter regressions from ArduPilot master history (public). Each case: the commit that",
+  "introduced the bug (culprit), the commit that fixed it, and what the bug does, read from the",
+  "fix commit by hand. Found with bench/real/szz.py, then every pair checked manually.",
+  "kind: escaped = lived on master for weeks or more and passed upstream CI the whole time;",
+  "      series = fixed within days, usually inside the same unit-conversion PR series;",
+  "      negative = a commit that should NOT change flight behaviour (false-alarm control).",
+  "Benchmark protocol (bench/real/run_real.py): baseline = culprit^, candidate = culprit, test",
+  "code pinned to culprit^. Detection is scored before the fix commit is ever looked at.",
+  "split: fixed before any new scenario was written (seed 20261003); poshold_brake_units forced into dev because it was examined first. Holdout cases are run once, after dev tuning is frozen.",
+  "2026-10-03: rtl_descent_trunc and bendyruler_sign culprits corrected (SZZ had blamed commits where the buggy line already existed); found by known_bugs.py verify, before either case was run."
+ ],
+ "cases": [
+  {
+   "id": "poshold_brake_units",
+   "kind": "escaped",
+   "culprit": "d56e91bbe223c0ae681ee9ca360a7422be827015",
+   "fix": "f4a1826f3a",
+   "bug": "POSHOLD_SPEED_0 left at 10 after velocities became m/s: braking always cut short, PosHold hands over to loiter while still moving, overshoots and flies back",
+   "split": "dev"
+  },
+  {
+   "id": "rtl_descent_trunc",
+   "kind": "escaped",
+   "culprit": "2db6c0ec8c5b131a5e94e1f420d639b09071278a",
+   "fix": "042ae97d01",
+   "bug": "labs() on a metre difference truncates to int: RTL descent stage ends 1 m from RTL_ALT_FINAL instead of 0.2 m",
+   "split": "dev"
+  },
+  {
+   "id": "hover_learn_roll_trunc",
+   "kind": "escaped",
+   "culprit": "f8f720a0c0868f2b7085555ecd74031ba43c29aa",
+   "fix": "0612b9d15d",
+   "bug": "labs() on roll in radians: hover-throttle learning allowed up to ~57 deg roll instead of 5 deg",
+   "split": "holdout"
+  },
+  {
+   "id": "circle_rate_entry",
+   "kind": "escaped",
+   "culprit": "5e26bf6b7fda05ba7e708aeed2dbc7e6055ca62a",
+   "fix": "62d8bbb80f",
+   "bug": "Circle pilot rate adjustment starts from the current (ramping) rate instead of the target rate",
+   "split": "dev"
+  },
+  {
+   "id": "follow_face_lead",
+   "kind": "escaped",
+   "culprit": "61f35ed0c8ac610f714bf4d4436c1a2e5243c942",
+   "fix": "f6c0aa9cf9",
+   "bug": "FOLL_YAW_BEHAVE=face-lead checks the lead's absolute position instead of the vector to it",
+   "split": "holdout"
+  },
+  {
+   "id": "follow_kinematic",
+   "kind": "escaped",
+   "culprit": "c74a29722cdd0b9c0a7b6c4b931bfcc97b77d356",
+   "fix": "9aeac8bfa2,452609a338,96b6b7a7e4",
+   "bug": "AP_Follow kinematic smoothing: half-area velocity profile, wrong offset velocity under lead rotation, unshaped vertical",
+   "split": "dev"
+  },
+  {
+   "id": "guided_reinit",
+   "kind": "escaped",
+   "culprit": "3038c70637297d78ecdbbf59395f2b4449e9fce8",
+   "fix": "efb5b57a2d",
+   "bug": "every Guided attitude/position target message that hits a reject path re-runs mode_guided.init(true)",
+   "split": "dev"
+  },
+  {
+   "id": "yaw_slew_limit",
+   "kind": "escaped",
+   "culprit": "eaeae81b91479865e730eff7e440feff0486d9c6",
+   "fix": "4959ff6824",
+   "bug": "S-curve command model: yaw slew limit applied as a hard clamp on the input rate rather than in the command model",
+   "split": "holdout"
+  },
+  {
+   "id": "body_frame_rotation",
+   "kind": "escaped",
+   "culprit": "7e45e208856329a423b01eadba8b881cc37a7d8a",
+   "fix": "7811979ca6",
+   "bug": "body_to_earth2D() result discarded: body-frame guided targets and pilot velocity not rotated to earth frame",
+   "split": "dev"
+  },
+  {
+   "id": "payload_land_alt",
+   "kind": "escaped",
+   "culprit": "11292d4139971b1c344e44cd98daaee6c50c0733",
+   "fix": "feb84ea854",
+   "bug": "rangefinder-height conversion to metres broke altitude shifting for Land and Payload Place",
+   "split": "dev"
+  },
+  {
+   "id": "ahrs_trim_scale",
+   "kind": "escaped",
+   "culprit": "f4069f57d97e33e89c7f5186f27c04842724dccb",
+   "fix": "b10ea90714",
+   "bug": "save_trim converts stick input with the wrong scale",
+   "split": "dev"
+  },
+  {
+   "id": "bendyruler_sign",
+   "kind": "escaped",
+   "culprit": "93b5456b6b01dce3b247f1daf379d750781ef9db",
+   "fix": "a9ad30dbf9",
+   "bug": "NEU->NED conversion switches the position-controller call to NED but leaves the BendyRuler horizontal destination altitude positive (wrong sign)",
+   "split": "holdout"
+  },
+  {
+   "id": "circle_edge_dist",
+   "kind": "escaped",
+   "culprit": "6df1d293b928eab7911b984b5e85dcbc91b76134",
+   "fix": "17a820d435",
+   "bug": "AC_Circle distance-to-edge computed from the wrong point after cm->m conversion",
+   "split": "holdout"
+  },
+  {
+   "id": "terrain_d_sign",
+   "kind": "escaped",
+   "culprit": "986c4a4e19c72fc96f05c8888fbb534f3707eab2",
+   "fix": "d6f64dac94",
+   "bug": "init_pos_terrain_D_m called with the wrong sign",
+   "split": "holdout"
+  },
+  {
+   "id": "ned_rename_signs",
+   "kind": "escaped",
+   "culprit": "7a8cc3815faa2b0eadf3092a11fb1c003152036f",
+   "fix": "00f9265c68,ca916c4649",
+   "bug": "commit titled 'No compiler change' flips payload-place ascent target and Throw-mode height check signs",
+   "split": "holdout"
+  },
+  {
+   "id": "scurve_climb_arc",
+   "kind": "escaped",
+   "culprit": "d650d534f94b67d5a752313cf600ee83c69a2f25",
+   "fix": "67052e7f79",
+   "bug": "climbing arcs: velocity/centripetal accel use the 3D path speed as horizontal speed",
+   "split": "holdout"
+  },
+  {
+   "id": "srtm_flow_sign",
+   "kind": "escaped",
+   "culprit": "d84ae4c51d3d23cffcc5fb10293f4f4b511996ee",
+   "fix": "09c48d855f",
+   "bug": "EKF3 optical-flow height from SRTM terrain has the wrong sign",
+   "split": "dev"
+  },
+  {
+   "id": "auto_meters",
+   "kind": "series",
+   "culprit": "5dbe7b9d7ad2200dd7b1a2c9b1e22e180269b7ff",
+   "fix": "61bcd318e8,62ef39b241",
+   "bug": "payload place max descent in cm used as metres; LOITER_TURNS with radius 0 keeps the old radius",
+   "split": "holdout"
+  },
+  {
+   "id": "acro_level",
+   "kind": "series",
+   "culprit": "f8a448d3c58e45938c5cab60c5670968bd3d7562",
+   "fix": "33eeb6af30",
+   "bug": "ACRO auto-level threshold/units broken",
+   "split": "holdout"
+  },
+  {
+   "id": "poshold_timing",
+   "kind": "series",
+   "culprit": "c1cbe24f41f08232603bb72ce4141985e6fb60be",
+   "fix": "6bf50843ae",
+   "bug": "PosHold unit conversion broke brake timing",
+   "split": "holdout"
+  },
+  {
+   "id": "guided_fence_units",
+   "kind": "series",
+   "culprit": "1a4f8b738e7cfccb573378f2d0683a919f73b792",
+   "fix": "7f25d3efbf,5d2d8a040b",
+   "bug": "Guided destination fence check gets metres where cm are expected: outside-fence targets accepted",
+   "split": "dev"
+  },
+  {
+   "id": "follow_dir_flight",
+   "kind": "series",
+   "culprit": "654cc97520319699c89c79a47fb94737e8968e65",
+   "fix": "a1e5d47248",
+   "bug": "face-direction-of-flight threshold 100 m/s after conversion: never yaws to the flight direction",
+   "split": "dev"
+  },
+  {
+   "id": "takeoff_units",
+   "kind": "series",
+   "culprit": "07b40650971a57770d69ea9afd4072594c9408de",
+   "fix": "bf471a8a07",
+   "bug": "MAVLink takeoff altitude passed in cm to a function now taking metres",
+   "split": "dev"
+  },
+  {
+   "id": "neg_ekf_wind_seed",
+   "kind": "negative",
+   "culprit": "f9b1bacb39e90f1c89aff6d92f03839d379b4b34",
+   "fix": null,
+   "bug": "none expected: author shows the change is clamped away before any fusion step",
+   "split": "dev"
+  }
+ ]
+}

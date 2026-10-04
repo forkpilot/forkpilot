@@ -1,0 +1,12 @@
+name: px4_hover
+autopilot: px4
+# take off, hover in Hold (AUTO.LOITER), land where it is
+steps:
+  - takeoff: 10
+  - hold: 20
+  - mode: AUTO.LAND
+  - wait_disarm: 120
+expect:
+  hold_drift_max_m: {lt: 1.5}
+  hold_alt_err_max_m: {lt: 1.0}
+  landing_offset_m: {lt: 2.0}

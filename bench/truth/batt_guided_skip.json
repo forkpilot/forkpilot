@@ -1,0 +1,22 @@
+{
+ "case": "batt_guided_skip",
+ "split": "holdout",
+ "branch": "bench/batt_guided_skip",
+ "good": "cafe67457776027a1bad6e165c409828c1a851e5",
+ "bad": "b567bf7f5320974fedd49c4c3f65336e262e6d4f",
+ "culprit": "50306b267e9071b712a5cd4df7b4a9b7ba900cc0",
+ "related": [
+  "50306b267e9071b712a5cd4df7b4a9b7ba900cc0"
+ ],
+ "positions": [
+  22
+ ],
+ "commits": 31,
+ "expect": {
+  "battery_low": "FAIL"
+ },
+ "kind": "defect",
+ "intent": "mission computer's smart BMS decides what to do on low battery in GUIDED",
+ "root_cause": "handle_battery_failsafe() returns early in GUIDED, so a low battery never triggers RTL",
+ "good_fix": "only defer while the mission computer is alive and acting; otherwise run the configured BATT_FS_LOW_ACT"
+}

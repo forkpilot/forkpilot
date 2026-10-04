@@ -1,0 +1,23 @@
+name: plane_battery_rtl
+vehicle: plane
+# battery sags below the low-voltage threshold on a survey leg; the low-battery failsafe must RTL
+# and the plane loiter over home
+params:
+  BATT_LOW_VOLT: 10.5
+  BATT_LOW_TIMER: 5
+  BATT_FS_LOW_ACT: 1      # RTL
+steps:
+  - mission:
+      - takeoff: 50
+      - wp: [600, 0, 60]
+      - wp: [600, 600, 60]
+      - wp: [-400, 600, 60]
+      - wp: [-400, 0, 60]
+  - takeoff: 50
+  - wait_wp: 3
+  - set_param: {SIM_BATT_VOLTAGE: 10.2}
+  - fly: 120
+expect:
+  failsafe_mode: {ge: 11, le: 11}  # RTL
+  failsafe_reaction_s: {lt: 10}    # BATT_LOW_TIMER 5
+  airspeed_min_mps: {gt: 10}

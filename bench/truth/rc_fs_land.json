@@ -1,0 +1,22 @@
+{
+ "case": "rc_fs_land",
+ "split": "holdout",
+ "branch": "bench/rc_fs_land",
+ "good": "cafe67457776027a1bad6e165c409828c1a851e5",
+ "bad": "c7b04c0701d5e8c24ae86c86c5a6d679675dc54e",
+ "culprit": "01a562e2df01ae097152a85f309ac799f7e9ac6b",
+ "related": [
+  "01a562e2df01ae097152a85f309ac799f7e9ac6b"
+ ],
+ "positions": [
+  16
+ ],
+ "commits": 31,
+ "expect": {
+  "rc_loss": "FAIL"
+ },
+ "kind": "intentional",
+ "intent": "operations policy: land where the RC link was lost",
+ "root_cause": "FS_THR_ENABLE=1 (documented as RTL) now lands in place, so the vehicle lands ~30 m from home",
+ "good_fix": "set FS_THR_ENABLE=5 (Land) in the airframe params instead of changing what the RTL option does"
+}

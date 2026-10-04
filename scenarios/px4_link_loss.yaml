@@ -1,0 +1,15 @@
+name: px4_link_loss
+autopilot: px4
+# ground-station link lost while holding away from home; with data-link failsafe set to
+# Return (NAV_DLL_ACT 2) the vehicle must come home and land
+params:
+  NAV_DLL_ACT: 2
+steps:
+  - takeoff: 15
+  - goto: [40, 0, 15]
+  - hold: 3
+  - link_loss: true
+  - wait_disarm: 300
+expect:
+  failsafe_reaction_s: {lt: 25}
+  landing_offset_m: {lt: 3.0}

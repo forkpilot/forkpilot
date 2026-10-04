@@ -1,0 +1,23 @@
+{
+ "case": "pos_p_soft",
+ "split": "dev",
+ "branch": "bench/pos_p_soft",
+ "good": "cafe67457776027a1bad6e165c409828c1a851e5",
+ "bad": "3d1812ccc18aa14fca1a01f109e4d3723cf27bdb",
+ "culprit": "16337ba397552bdfe88720dbb6abec579681a1b7",
+ "related": [
+  "16337ba397552bdfe88720dbb6abec579681a1b7"
+ ],
+ "positions": [
+  7
+ ],
+ "commits": 31,
+ "expect": {
+  "wind_hover": "DRIFT",
+  "square_mission": "DRIFT"
+ },
+ "kind": "intentional",
+ "intent": "smoother horizontal motion for camera work",
+ "root_cause": "default horizontal position P gain lowered 1.0 -> 0.6: weaker position hold in wind and more overshoot at waypoints",
+ "good_fix": "intentional; set PSC_NE_POS_P in the airframe parameter file rather than changing the compiled default, and accept the new baseline explicitly"
+}

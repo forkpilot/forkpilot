@@ -1,0 +1,22 @@
+{
+ "case": "land_detect_slow",
+ "split": "dev",
+ "branch": "bench/land_detect_slow",
+ "good": "cafe67457776027a1bad6e165c409828c1a851e5",
+ "bad": "c87d4bbe3f38045dd9ac3c6b8b5713d5a91010c7",
+ "culprit": "f881a02fd87746d46b3c7a0f2952add2d3c33e85",
+ "related": [
+  "f881a02fd87746d46b3c7a0f2952add2d3c33e85"
+ ],
+ "positions": [
+  5
+ ],
+ "commits": 31,
+ "expect": {
+  "hover": "DRIFT"
+ },
+ "kind": "intentional",
+ "intent": "avoid false landing detection on soft skids",
+ "root_cause": "land detector needs 3 s instead of 1 s of landed conditions, so motors disarm ~2 s later after touchdown",
+ "good_fix": "intentional; re-baseline (or detect landing with the skid geometry instead)"
+}

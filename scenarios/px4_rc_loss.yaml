@@ -1,0 +1,15 @@
+name: px4_rc_loss
+autopilot: px4
+# manual control (MAVLink joystick) lost while the pilot flies in Position mode: the default
+# failsafe (NAV_RCL_ACT 2) must Return and land at home
+steps:
+  - takeoff: 15
+  - mode: POSCTL
+  - sticks: {pitch: 1300}
+  - fly: 6
+  - release: 8
+  - rc_loss: true
+  - wait_disarm: 300
+expect:
+  failsafe_reaction_s: {lt: 10}
+  landing_offset_m: {lt: 3.0}

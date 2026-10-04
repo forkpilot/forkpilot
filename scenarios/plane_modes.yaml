@@ -1,0 +1,26 @@
+name: plane_modes
+vehicle: plane
+# pilot and loiter modes of a fixed-wing: LOITER over a point, CRUISE (heading and height hold),
+# an FBWA bank turn on the stick, then RTL to loiter over home. Ends in the air.
+params: {WP_LOITER_RAD: 80}
+steps:
+  - mission:
+      - takeoff: 50
+      - wp: [800, 0, 60]
+  - takeoff: 50
+  - sticks: {throttle: 1500}
+  - mode: LOITER
+  - fly: 60
+  - mode: CRUISE
+  - fly: 25
+  - mode: FBWA
+  - fly: 5
+  - sticks: {roll: 1700}
+  - fly: 10
+  - sticks: {roll: 1500}
+  - fly: 10
+  - mode: RTL
+  - fly: 100
+expect:
+  loiter_radius_m_rtl: {gt: 60, lt: 130}   # WP_LOITER_RAD 80
+  airspeed_min_mps: {gt: 10}

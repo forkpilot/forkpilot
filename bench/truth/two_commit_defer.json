@@ -1,0 +1,24 @@
+{
+ "case": "two_commit_defer",
+ "split": "dev",
+ "branch": "bench/two_commit_defer",
+ "good": "cafe67457776027a1bad6e165c409828c1a851e5",
+ "bad": "c0311d9c74ad92ab95194f700cebf51c47132ebf",
+ "culprit": "c0311d9c74ad92ab95194f700cebf51c47132ebf",
+ "related": [
+  "1ac55f485532c11e0c7db07761d073d2631eb093",
+  "c0311d9c74ad92ab95194f700cebf51c47132ebf"
+ ],
+ "positions": [
+  24,
+  31
+ ],
+ "commits": 32,
+ "expect": {
+  "gps_loss": "FAIL"
+ },
+ "kind": "defect",
+ "intent": "mission computer should handle navigation faults in GUIDED",
+ "root_cause": "the first commit adds an EKF-failsafe bypass in GUIDED behind ACME_COMPANION_NAV; the culprit only flips the flag to 1, enabling it",
+ "good_fix": "fix the bypass added in the earlier commit (defer only while the companion is alive, with a timeout) rather than just reverting the flag"
+}

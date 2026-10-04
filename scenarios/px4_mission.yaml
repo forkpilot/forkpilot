@@ -1,0 +1,11 @@
+name: px4_mission
+autopilot: px4
+# survey-style mission flown from a hover: three waypoints, then Return (climb, fly home, land)
+steps:
+  - mission: [[40, 0, 20], [40, 40, 20], [0, 40, 20]]
+  - takeoff: 10
+  - mode: AUTO.MISSION
+  - wait_disarm: 300
+expect:
+  mission_wp_reached: {ge: 3}
+  landing_offset_m: {lt: 2.0}

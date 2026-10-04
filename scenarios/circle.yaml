@@ -1,0 +1,20 @@
+name: circle
+# CIRCLE mode at its defaults, then the pilot pushes roll (rate adjust: left, because the default
+# rate is already at the speed limit and cannot rise) and pitch (radius adjust).
+# Added 2026-10-04 to cover a mode the battery never flew. Written after seeing the dev case
+# circle_rate_entry (disclose); kept generic: no parameter or timing from that case.
+params: {}
+steps:
+  - takeoff: 15
+  - sticks: {throttle: 1500}
+  - mode: CIRCLE
+  - fly: 25
+  - sticks: {roll: 1300}
+  - fly: 10
+  - release: 10
+  - sticks: {pitch: 1300}
+  - fly: 6
+  - release: 10
+  - mode: LAND
+  - wait_disarm: 120
+expect: {}

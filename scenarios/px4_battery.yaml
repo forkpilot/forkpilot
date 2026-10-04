@@ -1,0 +1,14 @@
+name: px4_battery
+autopilot: px4
+# the simulated battery drains mid-flight past the low (15%) and critical (7%) thresholds but not
+# to emergency (5%); with the battery failsafe Return at critical (COM_LOW_BAT_ACT 3) it must come home
+params:
+  COM_LOW_BAT_ACT: 3
+steps:
+  - takeoff: 15
+  - goto: [30, 0, 15]
+  - set_param: {SIM_BAT_MIN_PCT: 6}
+  - wait_disarm: 300
+expect:
+  failsafe_reaction_s: {lt: 60}
+  landing_offset_m: {lt: 3.0}

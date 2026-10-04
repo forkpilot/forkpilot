@@ -1,0 +1,29 @@
+name: pilot_sticks
+# Pilot-flown modes: push a stick, let go, measure how the vehicle stops. Upstream autotest
+# mostly flies GUIDED/AUTO; the stick-input paths of the manual position modes get little
+# coverage there. Generic per mode, not tuned to any known bug.
+params: {}
+steps:
+  - takeoff: 10
+  - sticks: {throttle: 1500}
+  - mode: LOITER
+  - fly: 3
+  - sticks: {pitch: 1250}
+  - fly: 8
+  - release: 15
+  - mode: POSHOLD
+  - fly: 3
+  - sticks: {pitch: 1250}
+  - fly: 8
+  - release: 15
+  - sticks: {roll: 1700}
+  - fly: 8
+  - release: 15
+  - mode: ALT_HOLD
+  - fly: 2
+  - sticks: {pitch: 1350}
+  - fly: 4
+  - release: 10
+  - mode: LAND
+  - wait_disarm: 120
+expect: {}

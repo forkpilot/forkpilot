@@ -1,0 +1,98 @@
+fix	fix_date	culprit	culprit_date	lines	fix_subject	culprit_subject
+09c48d855f	2026-09-15	d84ae4c51d	2025-08-13	1	AP_NavEKF3: fix the sign of the SRTM height used for flow scaling	AP_NavEKF3: support using terrain data for optical flow
+db4893b3fb	2026-09-07	b469253c1e	2026-09-07	1	AP_NavEKF3: correct healthy of sensor we're just about to fuse from	AP_NavEKF3: stop using airspeed_sensor_enabled from AP_DAL
+582a71193a	2026-08-30	259a05862c	2026-08-30	1	AC_WPNav: minor format fix to _this_leg_is_circle	AC_WPNav: reset object avoidance state on circle destination
+75df6d7f1a	2026-08-14	88f12c7f0d	2026-08-14	3	AP_Motors: make suggest fix to use switch	AP_MotorsHeli: use Tail RSC for DDFP control
+67052e7f79	2026-07-28	d650d534f9	2025-11-12	2	AP_Math: SCurve: fix arc velocity/accel for climbing arcs	AP_Math: Support SCurve Arcs
+67052e7f79	2026-07-28	5c91c80c76	2026-07-28	1	AP_Math: SCurve: fix arc velocity/accel for climbing arcs	AP_Math: SCurve: base arc kinematic limits on arc length not chord
+c734a012d0	2026-07-16	93b5456b6b	2025-12-17	1	AC_WPNav: correct use of uninitialised value in AC_Circle	AC_WPNav: NEU to NED renaming - Conversion
+c734a012d0	2026-07-16	6df1d293b9	2025-07-29	1	AC_WPNav: correct use of uninitialised value in AC_Circle	AC_WPNav: AC_Circle: Convert from cm to m
+09b50bf223	2026-07-13	512761df1f	2026-07-13	1	AP_Landing: correct airspeed returned in bad configuration case	AP_Landing: use metres/second for target airspeed in AP_Landing interface
+9aeac8bfa2	2026-07-08	c74a29722c	2025-05-22	1	AP_Follow: fix triangular velocity-change to full profile area	AP_Follow: Add kinematic smoothing
+fb8e256b81	2026-07-07	7e7960e032	2026-07-07	74	APM_Control: Fixedwing: add units to methods and variables and fix reset rate units bug	APM_Control: add input shaping to roll and pitch controllers
+fb8e256b81	2026-07-07	f8dd0b2d76	2025-02-04	9	APM_Control: Fixedwing: add units to methods and variables and fix reset rate units bug	APM_Control: add AP_FW_Controller as common base class to roll and pitch controllers
+9e92269f5f	2026-06-17	3344dba627	2024-09-04	1	AP_AHRS_DCM: correct guard around set_external_wind_estimate	AP_AHRS: support MAV_CMD_EXTERNAL_WIND_ESTIMATE
+2d5f6c2393	2026-06-04	6b32d611c8	2026-05-05	2	AP_AHRS: simplify and correct _getCorrectedDeltaVelocityNED	AP_AHRS: add AP_AHRS_NavEKF2 shim
+7c0641a919	2026-05-26	1146e2debc	2026-04-28	1	AP_Motors: fix DDVP after RSC rework	AP_Motors: fix setting of RSC_MODE param while disarmed
+7c0641a919	2026-05-26	ebd1e442a3	2026-04-28	1	AP_Motors: fix DDVP after RSC rework	AP_MotorsHeli: Rework of Heli Rotor Speed Control library
+bc3bb2637e	2026-05-23	ba1de061fd	2025-05-02	1	ArduPlane: Fix units + add suffix for high_latency_tgt_dist	Plane: add units and frames to AC_WPNav methods
+96b6b7a7e4	2026-05-23	c74a29722c	2025-05-22	2	AP_Follow: Fix vertical interpolation.	AP_Follow: Add kinematic smoothing
+3c96b65936	2026-05-20	be10ce8b50	2026-05-13	8	Revert "AP_NavEKF3: preserve origin across bootstrap reset"	AP_NavEKF3: preserve origin across bootstrap reset
+2764bec546	2026-05-19	de6482facb	2026-05-19	6	Copter: correct ordering of dt as argument in call	AP_Motors: fix order of spool state update and update_motor_control
+de6482facb	2026-05-19	9bbc95d0e2	2026-04-28	13	AP_Motors: fix order of spool state update and update_motor_control	AP_MotorsHeli: keep runup_complete and spooldown_complete in RSC
+452609a338	2026-05-19	c74a29722c	2025-05-22	2	AP_Follow: fix offset velocity and acceleration due to heading rotation	AP_Follow: Add kinematic smoothing
+452609a338	2026-05-19	f35ef22a8a	2025-05-29	2	AP_Follow: fix offset velocity and acceleration due to heading rotation	AP_Follow: Use single call to update_estimate
+b2828f07eb	2026-05-05	55a6b081ce	2026-03-25	2	AP_AHRS: correct compilation for EKF shim functions	AP_AHRS: add using_gps_for_posxy and fix recorded origin check
+b2828f07eb	2026-05-05	6cf75c55a5	2026-03-26	1	AP_AHRS: correct compilation for EKF shim functions	AP_AHRS: add get_pos_vel_uncertainty() wrapping EKF3 state covariance
+565d61703a	2026-04-28	431cc25dca	2024-10-11	5	AP_MotorsHeli: make suggested fixes	AP_MotorsHeli: Consolidate all autorotation state into its own class within RSC
+565d61703a	2026-04-28	ebd1e442a3	2026-04-28	1	AP_MotorsHeli: make suggested fixes	AP_MotorsHeli: Rework of Heli Rotor Speed Control library
+1146e2debc	2026-04-28	ebd1e442a3	2026-04-28	2	AP_Motors: fix setting of RSC_MODE param while disarmed	AP_MotorsHeli: Rework of Heli Rotor Speed Control library
+1146e2debc	2026-04-28	9d4428db45	2026-04-28	1	AP_Motors: fix setting of RSC_MODE param while disarmed	AP_Motors: reorganize methods into private and public
+266d5699cd	2026-04-28	ebd1e442a3	2026-04-28	13	AP_Motors: make suggested fixes	AP_MotorsHeli: Rework of Heli Rotor Speed Control library
+a9ad30dbf9	2026-04-27	c216158dff	2025-12-17	1	AC_WPNav: Fix sign mistake in a sub-part of BendyRulerHorizontal	AC_WPNav: NEU to NED renaming - No compiler change
+55a6b081ce	2026-03-25	d8a9394aac	2026-02-05	1	AP_AHRS: add using_gps_for_posxy and fix recorded origin check	AP_AHRS: add options to save and use last valid origin
+402a9376b4	2026-03-24	fe483aa8af	2026-03-24	13	AC_Fence: add _m suffix to altitude getters and fix comments	AC_Fence: specify alt frame for min and max fences separately
+e99d668c73	2026-03-20	2e928f1bd2	2025-04-10	8	Plane: correct use of __LINE__ to __AP_LINE__	Plane: never allow terrain_alt=1 and relative_alt=0
+e99d668c73	2026-03-20	0799343a98	2025-04-15	1	Plane: correct use of __LINE__ to __AP_LINE__	ArduPlane: avoid creating mission items to convey altitude data in guided-change-alt
+15a70a3124	2026-03-18	2f19dfef8a	2024-09-10	1	ArduPlane: fix compilation error without DCM enabled	Plane: added glider pullup support
+4959ff6824	2026-03-05	eaeae81b91	2026-02-04	5	AC_AttitudeControl: Fix Yaw Slew Limit	AC_AttitudeControl: Real time S-Curve Command Model
+49126b1318	2026-02-06	59b1f43357	2025-05-28	1	ArduPlane: Fix roll error in takeoff when flying inverted	Plane: Use cd_to_rad and remove radians(XXX * 0.01f);
+1fc79cdd48	2025-12-17	ef7c4935bd	2025-09-26	2	AP_Math: Fix NEU to NED comments	AP_Math: Convert to postype
+346f852a92	2025-12-17	1f90c7eb3d	2025-12-17	3	AC_PosControl: correct param conversion comments	AC_PosControl: param conversion for change to NED
+b048354907	2025-12-02	2efe2932a1	2025-07-23	1	Plane: fix yaw calculation during POS1 overshoot	Plane: Quadplane: Add units and axis to variables
+17a820d435	2025-12-02	6df1d293b9	2025-07-29	4	AC_Circle: correct distance-to-edge calculations	AC_WPNav: AC_Circle: Convert from cm to m
+17a820d435	2025-12-02	8e030fc4ac	2025-09-26	1	AC_Circle: correct distance-to-edge calculations	AC_WPNav: Convert to postype
+f54d0c93f2	2025-12-01	d98bad1c09	2025-11-28	3	AP_AHRS: correct use of AHRS_EKF_TYPE value rather than canonicalised type	AP_AHRS: rename ekf_type to configured_ekf_type to clarify its use
+dea8f1a4da	2025-11-21	a4a4e649bc	2025-07-29	8	Plane: AC_PosControl: Correct sign of speed_down_ms to positive	Plane: pos_control: Convert limits to m
+dea8f1a4da	2025-11-21	98243684e5	2025-08-05	5	Plane: AC_PosControl: Correct sign of speed_down_ms to positive	Plane: AC_PosControl: Fix units on set_correction_speed_accel_U
+63d1bd7b0f	2025-11-21	d279818a1a	2025-07-24	1	AC_WPNav: Correct sign of speed and acceleration limits	AC_WPNav: Convert to m and add cm accessors
+63d1bd7b0f	2025-11-21	f9735e68eb	2025-08-05	1	AC_WPNav: Correct sign of speed and acceleration limits	AC_WPNav: AC_PosControl: Fix units on set_correction_speed_accel_U
+f21c91bd7f	2025-11-18	37ff107975	2025-11-18	2	AP_Avoidance: Fix cm/m conversion mistake	AP_Avoidance: Naming Change No compiler change
+2d84d1a490	2025-11-04	554c20f01b	2025-11-04	2	Plane: fix CI bug	Plane: apply suggested fixes
+554c20f01b	2025-11-04	03f3c9b203	2025-11-04	29	Plane: apply suggested fixes	Plane: add support for System ID on aux switch
+554c20f01b	2025-11-04	18a9c5bddb	2025-03-21	6	Plane: apply suggested fixes	Plane: add system ID to quadplane
+60710b290e	2025-10-13	6b7fc2c27e	2025-09-26	3	AP_AHRS: Fix output type of body_to_earth2D_p	AHRS: Add body_to_earth2D_p
+6bf14aa5f9	2025-08-13	d279818a1a	2025-07-24	2	AC_WPNav: Fix Vector3f () to {}	AC_WPNav: Convert to m and add cm accessors
+6bf14aa5f9	2025-08-13	6df1d293b9	2025-07-29	1	AC_WPNav: Fix Vector3f () to {}	AC_WPNav: AC_Circle: Convert from cm to m
+9e3c83bc50	2025-08-13	d089385ec3	2025-06-18	3	AC_AttitudeControl: Fix Vector3f () to {}	AC_AttitudeControl: Add units to 6DoF and TS attitude functions
+a74f3201f7	2025-08-05	57a2f683df	2025-07-29	1	Plane: AC_PosControl: Fix units in land_at_climb_rate_ms	Plane: QuadPlane: Convert landing_descent_rate_cms to ms
+a74f3201f7	2025-08-05	f2f68c2c0b	2025-07-29	1	Plane: AC_PosControl: Fix units in land_at_climb_rate_ms	Plane: Move to pos_control meters interface
+e87b322d84	2025-08-05	a353ce05ba	2025-07-11	3	AC_AttitudeControl: AC_PosControl: Fix units in land_at_climb_rate	AC_AttitudeControl: AC_PosControl: Convert to m except IMAX
+e87b322d84	2025-08-05	772751ada0	2025-04-23	2	AC_AttitudeControl: AC_PosControl: Fix units in land_at_climb_rate	AC_AttitudeControl: add units and frames to AC_AttitudeControl methods
+98243684e5	2025-08-05	a4a4e649bc	2025-07-29	5	Plane: AC_PosControl: Fix units on set_correction_speed_accel_U	Plane: pos_control: Convert limits to m
+f9735e68eb	2025-08-05	d279818a1a	2025-07-24	1	AC_WPNav: AC_PosControl: Fix units on set_correction_speed_accel_U	AC_WPNav: Convert to m and add cm accessors
+9217217573	2025-08-05	a353ce05ba	2025-07-11	3	AC_AttitudeControl: AC_PosControl: Fix units on set_correction_speed_accel_U	AC_AttitudeControl: AC_PosControl: Convert to m except IMAX
+9217217573	2025-08-05	772751ada0	2025-04-23	2	AC_AttitudeControl: AC_PosControl: Fix units on set_correction_speed_accel_U	AC_AttitudeControl: add units and frames to AC_AttitudeControl methods
+f81c8354ab	2025-08-01	4f9aee3f9e	2025-05-02	2	AC_WPNav: AC_WPNav_OA: Fix variable axis and units	AC_WPNav: add units and frames to AC_WPNav methods
+f97d4372db	2025-08-01	4f9aee3f9e	2025-05-02	24	AC_WPNav: AC_Loiter: Fix variable axis and units	AC_WPNav: add units and frames to AC_WPNav methods
+45be69087c	2025-07-29	68a358366d	2025-07-29	1	AC_WPNav: AC_Circle: Fix rotation rate parameter getter	AC_WPNav: AC_Circle: Move to radians internally
+cf067f2ca7	2025-07-29	2efe2932a1	2025-07-23	3	Plane: Quadplane: Small units fix and cleanup	Plane: Quadplane: Add units and axis to variables
+cf067f2ca7	2025-07-29	f2f68c2c0b	2025-07-29	1	Plane: Quadplane: Small units fix and cleanup	Plane: Move to pos_control meters interface
+67e4717f95	2025-07-29	f2f68c2c0b	2025-07-29	4	Plane: QuadPlane: Fix compile problem	Plane: Move to pos_control meters interface
+0cb35c1efc	2025-07-24	4f9aee3f9e	2025-05-02	11	AC_WPNav: AC_Circle: Fix white space	AC_WPNav: add units and frames to AC_WPNav methods
+6bc21c3a94	2025-07-24	4f9aee3f9e	2025-05-02	3	AC_WPNav: AC_WPNav_OA: Fix white space	AC_WPNav: add units and frames to AC_WPNav methods
+6bc21c3a94	2025-07-24	90f3931655	2025-07-17	1	AC_WPNav: AC_WPNav_OA: Fix white space	AC_WPNav: use is_terrain_alt for clarity
+d83d47d799	2025-07-17	4f9aee3f9e	2025-05-02	6	AC_WPNav: Fix units on set_wp_destination_NED	AC_WPNav: add units and frames to AC_WPNav methods
+fab326808a	2025-07-17	90f3931655	2025-07-17	8	WPNav: Add/Fix Frame and Units	AC_WPNav: use is_terrain_alt for clarity
+a8b771bf01	2025-07-17	4f9aee3f9e	2025-05-02	14	AC_WPNav: Fix destination units in variables and comments	AC_WPNav: add units and frames to AC_WPNav methods
+e567ca1940	2025-06-19	d089385ec3	2025-06-18	4	AC_AttitudeControl: Fix variable units	AC_AttitudeControl: Add units to 6DoF and TS attitude functions
+e567ca1940	2025-06-19	ae221b2ced	2025-06-18	2	AC_AttitudeControl: Fix variable units	AC_AttitudeControl: Add units to Sub attitude functions
+5a923d2217	2025-05-26	c05a0eefff	2025-04-29	34	AC_AttitudeControl: rename local variables to correct/add units	AC_AttitudeControl: Internal Units and Comments
+6fb2f3cd99	2025-05-26	28a3bfeb6b	2025-04-29	2	AC_AttitudeControl: correct method name input_rate_step_bf_roll_pitch_yaw_cds	AC_AttitudeControl: add units and frames to AC_AttitudeControl methods
+50b8551ccc	2025-05-04	18a9c5bddb	2025-03-21	3	ArduPlane: correct typos and mis-spellings	Plane: add system ID to quadplane
+df400330af	2025-04-02	49b00cefae	2025-04-02	1	Plane: fixed clear of inverted flight for tailsitters	Plane: cancel inverted when entering Q mode
+8079af4014	2025-04-02	4d112e01e5	2025-04-02	1	Plane: fixed the force_fw_control_recovery logic for tiltrotors	Plane: ensure tiltrotors use consistent FW/VTOL rates
+f0ee26847f	2025-03-19	f0456f29dd	2024-07-24	2	AC_Fence: Fixed wording in error messages	AC_Fence: always disable Min Alt fence on landing
+080dc64512	2025-03-05	317fab2f19	2024-07-29	3	AP_Mission: fix option_is_set	AP_Mission: add and use an option_is_set method
+9893017f3c	2025-02-18	edaddc0431	2024-07-23	1	AP_TECS: Corrected formula for _TASmin according to fix in formula for the load factor	AP_TECS: Use aircraft stall speed
+6a02fdb5df	2025-02-11	5b8a702b54	2024-11-27	1	TECS:correct metadata	AP_TECS: Added method to handle home altitude change
+bf17b1d9a3	2025-02-11	010e6ba0b0	2025-01-21	1	Plane: correct abs function used for integer	ArduPlane: mode AUTOLAND enhancements Co-authored-by: Andrew Tridgell <andrew@tridgell.net> Co-authored-by: Pete Hall <iampete@hotmail.co.uk>
+1c194878ee	2024-10-01	2f19dfef8a	2024-09-10	1	Plane: fixed bug in pullup code	Plane: added glider pullup support
+33f9513854	2024-09-06	a51614f360	2024-09-03	1	AP_NavEKF3: correct includes	AP_NavEKF3: use reference for dal in frontend
+18e95c7979	2024-09-06	1f01f75036	2024-08-07	11	Revert "AP_NavEKF3: Corrected logged units"	AP_NavEKF3: Corrected logged units
+ae6f41f414	2024-07-31	773c91cec1	2024-07-29	2	Plane: Fixed unhandled TKOFF_THR_MAX=0 case	ArduPlane: Added minimum throttle during TAKEOFF mode
+9b041be8a1	2024-07-31	f0456f29dd	2024-07-24	1	AC_Fence: correct prearm message	AC_Fence: always disable Min Alt fence on landing
+d845af9bc3	2024-07-24	5d46e0c64e	2024-07-24	9	Plane: fixed re-enable of fence for FENCE_AUTOENABLE=1	Plane: reset previous mode fence breach when disarmed
+68f2593089	2024-07-24	04dd7de1ed	2024-07-24	1	AC_Fence: fixed FENCE_AUTOENABLE=2	AC_Fence: disable fences for landing by suppressing in the fence check rather than using a state machine
+c77f688032	2024-06-09	3a311a9d69	2024-06-09	1	AP_Motors: fix spacing	AP_Motors: Heli: Fix SWSH logging for reversed collectives
+568972c0f0	2024-06-09	324d5da811	2024-06-09	2	AP_NavEKF3: Fix bug preventing use of default or synthetic airspeed	AP_NavEKF3: Use last observed wind states to enable dead reckoning

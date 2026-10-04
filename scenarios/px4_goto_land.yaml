@@ -1,0 +1,14 @@
+name: px4_goto_land
+autopilot: px4
+# companion-style repositioning (DO_REPOSITION) over two legs, then Land where it stopped:
+# arrival time and overshoot per leg, and how far the vehicle moves on the way down
+steps:
+  - takeoff: 10
+  - goto: [30, 0, 10]
+  - goto: [30, 30, 15]
+  - hold: 5
+  - mode: AUTO.LAND
+  - wait_disarm: 120
+expect:
+  goto_overshoot_max_m: {lt: 3.0}
+  land_drift_m: {lt: 1.5}

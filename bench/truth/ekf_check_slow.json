@@ -1,0 +1,22 @@
+{
+ "case": "ekf_check_slow",
+ "split": "dev",
+ "branch": "bench/ekf_check_slow",
+ "good": "cafe67457776027a1bad6e165c409828c1a851e5",
+ "bad": "ce249a608c033ae5e0c5f89cb760a2a1e50027a9",
+ "culprit": "5f7c9551d903ebde612c01fab238bc06eb7fb616",
+ "related": [
+  "5f7c9551d903ebde612c01fab238bc06eb7fb616"
+ ],
+ "positions": [
+  8
+ ],
+ "commits": 31,
+ "expect": {
+  "gps_loss": "FAIL"
+ },
+ "kind": "defect",
+ "intent": "avoid false EKF failsafes caused by short variance spikes",
+ "root_cause": "EKF_CHECK_ITERATIONS_MAX raised from 10 to 150 iterations at 10 Hz, so a real position loss takes ~15 s longer to trigger the failsafe",
+ "good_fix": "keep the 1 s check; tune FS_EKF_THRESH or filter spikes instead of delaying detection of sustained bad variance"
+}

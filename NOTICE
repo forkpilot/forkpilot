@@ -1,0 +1,23 @@
+ForkPilot
+Copyright 2026 Furkan Kadir Yılmaz
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Third-party software
+--------------------
+
+ForkPilot does not contain ArduPilot or PX4 code. It checks out, builds and runs a
+separate checkout of them, which the user provides:
+
+- ArduPilot (https://github.com/ArduPilot/ardupilot) is licensed under GPL-3.0.
+  ForkPilot's autotest suite imports ArduPilot's own test code from that checkout
+  at run time.
+- PX4 Autopilot (https://github.com/PX4/PX4-Autopilot) is licensed under BSD-3-Clause.
+
+Exceptions in this repository:
+
+- bench/real/patches/*.diff are changes to ArduPilot source files. They are
+  derived from ArduPilot and are licensed under GPL-3.0, not Apache-2.0.
+- bench/make_fork.py contains short ArduPilot source lines that it uses as
+  anchors to edit a local ArduPilot checkout.
+- tests/data/auto_mission_small.bin is a DataFlash log recorded from ArduPilot SITL.

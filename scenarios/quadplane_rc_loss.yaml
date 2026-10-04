@@ -1,0 +1,23 @@
+name: quadplane_rc_loss
+vehicle: plane
+frame: quadplane
+# RC link lost on a wing-borne mission leg: the long failsafe must RTL (FS_LONG_ACTN 1), and with
+# Q_RTL_MODE 1 the QuadPlane switches to QRTL near home and lands vertically
+params:
+  FS_LONG_ACTN: 1
+  Q_RTL_MODE: 1
+steps:
+  - mission:
+      - vtol_takeoff: 30
+      - wp: [500, 0, 50]
+      - wp: [500, 500, 50]
+      - wp: [-300, 500, 50]
+      - vtol_land: [0, 0]
+  - takeoff: {alt: 30, mode: AUTO}
+  - wait_wp: 3
+  - set_param: {SIM_RC_FAIL: 1}
+  - wait_disarm: 400
+expect:
+  failsafe_mode: {ge: 11, le: 11}  # RTL
+  failsafe_reaction_s: {lt: 10}
+  landing_offset_m: {lt: 5}

@@ -1,0 +1,10 @@
+name: auto_mission
+# survey-style AUTO mission: three waypoints, then RTL and land at home
+steps:
+  - mission: [[40, 0, 20], [40, 40, 20], [0, 40, 20]]
+  - takeoff: 20
+  - mode: AUTO
+  - wait_disarm: 200
+expect:
+  mission_wp_reached: {ge: 3}
+  landing_offset_m: {lt: 2.0}

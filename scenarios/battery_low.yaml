@@ -1,0 +1,14 @@
+name: battery_low
+# battery sags below the low-voltage threshold mid-flight; low-battery failsafe must RTL
+params:
+  BATT_LOW_VOLT: 10.5
+  BATT_LOW_TIMER: 5
+  BATT_FS_LOW_ACT: 2      # RTL
+steps:
+  - takeoff: 15
+  - goto: [30, 0, 15]
+  - set_param: {SIM_BATT_VOLTAGE: 10.2}
+  - wait_disarm: 200
+expect:
+  failsafe_reaction_s: {lt: 10}
+  landing_offset_m: {lt: 3.0}

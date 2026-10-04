@@ -1,0 +1,23 @@
+name: px4_posctl_sticks
+autopilot: px4
+# Pilot-flown modes: push a stick, let go, measure how the vehicle stops (Position mode brakes and
+# holds; Altitude mode holds height only). Generic per mode, not tuned to any known bug.
+steps:
+  - takeoff: 10
+  - mode: POSCTL
+  - fly: 3
+  - sticks: {pitch: 1250}
+  - fly: 8
+  - release: 15
+  - sticks: {roll: 1700}
+  - fly: 8
+  - release: 15
+  - mode: ALTCTL
+  - fly: 2
+  - sticks: {pitch: 1350}
+  - fly: 4
+  - release: 10
+  - mode: AUTO.LAND
+  - wait_disarm: 120
+expect:
+  stop_dist_m_posctl: {lt: 15}

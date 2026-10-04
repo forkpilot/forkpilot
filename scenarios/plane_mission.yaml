@@ -1,0 +1,17 @@
+name: plane_mission
+vehicle: plane
+# fixed-wing survey circuit: runway takeoff, four legs (one descending), approach and landing
+steps:
+  - mission:
+      - takeoff: 40
+      - wp: [500, 0, 60]
+      - wp: [500, 500, 60]
+      - wp: [-500, 500, 60]
+      - wp: [-600, 0, 40]
+      - land: [0, 0]
+  - takeoff: 40
+  - wait_disarm: 400
+expect:
+  mission_wp_reached: {ge: 5}
+  touchdown_err_m: {lt: 75}       # fixed-wing landing: about a runway length
+  airspeed_min_mps: {gt: 10}      # AIRSPEED_MIN in models/plane.parm

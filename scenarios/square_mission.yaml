@@ -1,0 +1,16 @@
+name: square_mission
+steps:
+  - takeoff: 15
+  - goto: [30, 0, 15]
+  - hold: 3
+  - goto: [30, 30, 15]
+  - hold: 3
+  - goto: [0, 30, 15]
+  - hold: 3
+  - goto: [0, 0, 15]
+  - hold: 3
+  - mode: LAND
+  - wait_disarm: 120
+expect:
+  goto_overshoot_max_m: {lt: 3.0}
+  goto_time_total_s: {lt: 90}

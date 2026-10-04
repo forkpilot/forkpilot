@@ -1,0 +1,49 @@
+[build-system]
+requires = ["hatchling>=1.18"]
+build-backend = "hatchling.build"
+
+[project]
+name = "forkpilot"
+version = "0.1.0"
+description = "Find, localize and fix flight-behaviour regressions in company forks of ArduPilot and PX4 (SITL, on-premises)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Furkan Kadir Yılmaz" }]
+keywords = ["ardupilot", "px4", "sitl", "regression", "bisect", "drone"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: Software Development :: Testing",
+]
+dependencies = [
+    "pymavlink>=2.4.40",
+    "PyYAML>=6.0",
+    # ArduPilot's waf build imports these; empy 4 breaks it
+    "empy==3.3.4",
+    "pexpect>=4.8",
+]
+
+[project.urls]
+Homepage = "https://github.com/forkpilot/forkpilot"
+Issues = "https://github.com/forkpilot/forkpilot/issues"
+Changelog = "https://github.com/forkpilot/forkpilot/blob/main/CHANGELOG.md"
+
+[project.optional-dependencies]
+# only for --suite autotest: ArduPilot's own test code imports them
+autotest = ["MAVProxy>=1.8.60", "numpy>=1.24"]
+
+[project.scripts]
+forkpilot = "forkpilot.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["forkpilot"]
+
+# the wheel carries the shipped scenarios inside the package; a checkout or editable install reads ./scenarios
+[tool.hatch.build.targets.wheel.force-include]
+"scenarios" = "forkpilot/scenarios"
+
+[tool.hatch.build.targets.sdist]
+include = ["forkpilot", "scenarios", "docs", "tests", "README.md", "LICENSE", "NOTICE", "pyproject.toml"]

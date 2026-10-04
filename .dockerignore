@@ -1,0 +1,18 @@
+# keep the build context to the code: no customer checkouts, caches or results
+.git
+.gitignore
+ardupilot
+builds
+results
+investigations
+.venv
+.venv-*
+**/__pycache__
+**/*.pyc
+fork-analysis/data
+bench/results
+bench/real/results
+outreach
+px4
+buildlogs
+site

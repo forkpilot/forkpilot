@@ -1,0 +1,26 @@
+{
+ "case": "broken_build_rc",
+ "split": "dev",
+ "branch": "bench/broken_build_rc",
+ "good": "cafe67457776027a1bad6e165c409828c1a851e5",
+ "bad": "665a0246ab98101bf682784bc7b7090ea0376429",
+ "culprit": "89752e16db90c948d5381a10e58767ef5d3806c4",
+ "related": [
+  "d17529f46eb07d526711941db0b60026d6f9fd0a",
+  "eba163e32acbc55a639617a9c840ada119b9e465",
+  "89752e16db90c948d5381a10e58767ef5d3806c4"
+ ],
+ "positions": [
+  5,
+  6,
+  7
+ ],
+ "commits": 33,
+ "expect": {
+  "rc_loss": "FAIL"
+ },
+ "kind": "defect",
+ "intent": "mission computer keeps control when the RC link drops",
+ "root_cause": "FS_OPTIONS default gains RC_CONTINUE_IF_GUIDED, so RC loss in GUIDED no longer triggers RTL",
+ "good_fix": "leave the default; enable the option only on airframes whose mission computer has its own lost-link handling, or bound it with a timeout"
+}

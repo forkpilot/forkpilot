@@ -1,0 +1,10 @@
+name: rc_loss
+# RC link lost while the companion flies in GUIDED; radio failsafe must RTL (FS_THR_ENABLE 1)
+steps:
+  - takeoff: 15
+  - goto: [0, 30, 15]
+  - set_param: {SIM_RC_FAIL: 1}
+  - wait_disarm: 200
+expect:
+  failsafe_reaction_s: {lt: 5}
+  landing_offset_m: {lt: 3.0}

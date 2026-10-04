@@ -1,0 +1,22 @@
+{
+ "case": "land_speed_fast",
+ "split": "holdout",
+ "branch": "bench/land_speed_fast",
+ "good": "cafe67457776027a1bad6e165c409828c1a851e5",
+ "bad": "a8532fe566ab81956358309585a24013c783b71a",
+ "culprit": "178d2f7016747fab9ead4a2d5c98c2c5646d8942",
+ "related": [
+  "178d2f7016747fab9ead4a2d5c98c2c5646d8942"
+ ],
+ "positions": [
+  16
+ ],
+ "commits": 31,
+ "expect": {
+  "hover": "DRIFT"
+ },
+ "kind": "intentional",
+ "intent": "shorter landings to save battery",
+ "root_cause": "final landing descent speed doubled 0.5 -> 1.0 m/s, shortening every landing",
+ "good_fix": "intentional; set LAND_SPD_MS per airframe, check touchdown loads, re-baseline"
+}

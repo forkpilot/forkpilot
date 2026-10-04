@@ -1,0 +1,20 @@
+name: guided_cmds
+# GUIDED commands a companion computer sends: heading, body-frame and earth-frame velocity, and a
+# position target outside the fence (must be refused). Added 2026-10-04 to cover GUIDED command
+# paths; written after seeing the dev cases body_frame_rotation and guided_fence_units (disclose).
+params: {FENCE_ENABLE: 1, FENCE_TYPE: 2, FENCE_RADIUS: 60}
+steps:
+  - takeoff: 10
+  - yaw: 135
+  - velocity: {vx: 3, frame: body, seconds: 8}
+  - velocity: {vy: -3, frame: local, seconds: 8}
+  - fly: 3
+  - goto: [0, 0, 10]
+  - send_goto: [150, 0, 10]
+  - hold: 15
+  - mode: LAND
+  - wait_disarm: 120
+expect:
+  range_max_m: {lt: 60}
+  vel_err_mps_1: {lt: 1.0}
+  vel_err_mps_2: {lt: 1.0}

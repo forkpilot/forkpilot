@@ -1,0 +1,13 @@
+# third-party checkout and build outputs
+ardupilot/
+builds/
+results/
+investigations/
+.venv/
+__pycache__/
+*.pyc
+# fork data (names fork owners; regenerate with the fork-analysis scripts)
+fork-analysis/data/
+buildlogs/
+px4/
+.venv*/

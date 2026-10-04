@@ -1,0 +1,23 @@
+{
+ "case": "mixed_wp_speed",
+ "split": "dev",
+ "branch": "bench/mixed_wp_speed",
+ "good": "cafe67457776027a1bad6e165c409828c1a851e5",
+ "bad": "73f612c1a612dad7e9aad2add5382024ff3b2c2e",
+ "culprit": "7b673517d7b5da10283e3a5ffb11a6bfb97a24df",
+ "related": [
+  "7b673517d7b5da10283e3a5ffb11a6bfb97a24df"
+ ],
+ "positions": [
+  8
+ ],
+ "commits": 31,
+ "expect": {
+  "square_mission": "DRIFT",
+  "auto_mission": "DRIFT"
+ },
+ "kind": "intentional",
+ "intent": "slower survey legs for the camera payload",
+ "root_cause": "buried in a mixed integration commit, WP_SPD_DEFAULT is halved (10 -> 5 m/s), so waypoint legs take longer",
+ "good_fix": "intentional; set WPNAV_SPEED in the airframe params and keep the compiled default"
+}

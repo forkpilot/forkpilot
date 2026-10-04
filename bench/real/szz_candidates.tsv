@@ -1,0 +1,108 @@
+fix	fix_date	culprit	culprit_date	lines	fix_subject	culprit_subject
+7c9dd7e00a	2026-09-29	0514f35f0f	2026-09-29	2	Copter: RTL: fix latent hang in the in-cycle terrain restart path	Copter: RTL: state machine restructured
+09c48d855f	2026-09-15	d84ae4c51d	2025-08-13	1	AP_NavEKF3: fix the sign of the SRTM height used for flow scaling	AP_NavEKF3: support using terrain data for optical flow
+db4893b3fb	2026-09-07	b469253c1e	2026-09-07	1	AP_NavEKF3: correct healthy of sensor we're just about to fuse from	AP_NavEKF3: stop using airspeed_sensor_enabled from AP_DAL
+f4a1826f3a	2026-09-07	d56e91bbe2	2025-08-20	2	ArduCopter: fix PosHold brake-to-loiter speed threshold units	Copter: Convert Mode PosHold to meters and radians
+582a71193a	2026-08-30	259a05862c	2026-08-30	1	AC_WPNav: minor format fix to _this_leg_is_circle	AC_WPNav: reset object avoidance state on circle destination
+75df6d7f1a	2026-08-14	88f12c7f0d	2026-08-14	3	AP_Motors: make suggest fix to use switch	AP_MotorsHeli: use Tail RSC for DDFP control
+17792724fa	2026-08-11	63d7973471	2025-05-14	3	Copter: simple mode fix	Copter: avoid updating simple-mode values when RC input is invalid
+67052e7f79	2026-07-28	d650d534f9	2025-11-12	2	AP_Math: SCurve: fix arc velocity/accel for climbing arcs	AP_Math: Support SCurve Arcs
+67052e7f79	2026-07-28	5c91c80c76	2026-07-28	1	AP_Math: SCurve: fix arc velocity/accel for climbing arcs	AP_Math: SCurve: base arc kinematic limits on arc length not chord
+62d8bbb80f	2026-07-23	5e26bf6b7f	2025-08-05	4	ArduCopter: correct Copter mode entry with low RC rate demand	Copter: Mode Circle: Fix naming and units
+c734a012d0	2026-07-16	93b5456b6b	2025-12-17	1	AC_WPNav: correct use of uninitialised value in AC_Circle	AC_WPNav: NEU to NED renaming - Conversion
+c734a012d0	2026-07-16	6df1d293b9	2025-07-29	1	AC_WPNav: correct use of uninitialised value in AC_Circle	AC_WPNav: AC_Circle: Convert from cm to m
+9aeac8bfa2	2026-07-08	c74a29722c	2025-05-22	1	AP_Follow: fix triangular velocity-change to full profile area	AP_Follow: Add kinematic smoothing
+f6c0aa9cf9	2026-07-08	61f35ed0c8	2025-05-27	2	Copter: ModeFollow: fix YAW_BEHAVE_FACE_LEAD_VEHICLE	Copter: Mode Follow: Use kinematic shaping.
+f6c0aa9cf9	2026-07-08	7a8cc3815f	2025-12-17	1	Copter: ModeFollow: fix YAW_BEHAVE_FACE_LEAD_VEHICLE	Copter: NEU to NED renaming - No compiler change
+f3d99e3509	2026-06-12	bb7ebae4bd	2026-02-12	1	Copter: fix tradheli stick armingbehavior	ArduCopter: moved heli deafult parameters out of Parameters.cpp
+2d5f6c2393	2026-06-04	6b32d611c8	2026-05-05	2	AP_AHRS: simplify and correct _getCorrectedDeltaVelocityNED	AP_AHRS: add AP_AHRS_NavEKF2 shim
+7c0641a919	2026-05-26	1146e2debc	2026-04-28	1	AP_Motors: fix DDVP after RSC rework	AP_Motors: fix setting of RSC_MODE param while disarmed
+7c0641a919	2026-05-26	ebd1e442a3	2026-04-28	1	AP_Motors: fix DDVP after RSC rework	AP_MotorsHeli: Rework of Heli Rotor Speed Control library
+70fe7125fe	2026-05-23	514e71b850	2025-05-12	1	ArduCopter: Fix units + add suffix for high_latency_tgt_dist	Copter: Add units to the method that calculates the distance meter between WAYPOINTs
+96b6b7a7e4	2026-05-23	c74a29722c	2025-05-22	2	AP_Follow: Fix vertical interpolation.	AP_Follow: Add kinematic smoothing
+3c96b65936	2026-05-20	be10ce8b50	2026-05-13	8	Revert "AP_NavEKF3: preserve origin across bootstrap reset"	AP_NavEKF3: preserve origin across bootstrap reset
+2764bec546	2026-05-19	de6482facb	2026-05-19	6	Copter: correct ordering of dt as argument in call	AP_Motors: fix order of spool state update and update_motor_control
+de6482facb	2026-05-19	9bbc95d0e2	2026-04-28	13	AP_Motors: fix order of spool state update and update_motor_control	AP_MotorsHeli: keep runup_complete and spooldown_complete in RSC
+452609a338	2026-05-19	c74a29722c	2025-05-22	2	AP_Follow: fix offset velocity and acceleration due to heading rotation	AP_Follow: Add kinematic smoothing
+452609a338	2026-05-19	f35ef22a8a	2025-05-29	2	AP_Follow: fix offset velocity and acceleration due to heading rotation	AP_Follow: Use single call to update_estimate
+feb84ea854	2026-05-11	11292d4139	2025-08-15	4	Copter: fix altitude handling for Land and Payload Place	Copter: Convert get_rangefinder_height_interpolated to meters
+b2828f07eb	2026-05-05	55a6b081ce	2026-03-25	2	AP_AHRS: correct compilation for EKF shim functions	AP_AHRS: add using_gps_for_posxy and fix recorded origin check
+b2828f07eb	2026-05-05	6cf75c55a5	2026-03-26	1	AP_AHRS: correct compilation for EKF shim functions	AP_AHRS: add get_pos_vel_uncertainty() wrapping EKF3 state covariance
+565d61703a	2026-04-28	ebd1e442a3	2026-04-28	1	AP_MotorsHeli: make suggested fixes	AP_MotorsHeli: Rework of Heli Rotor Speed Control library
+1146e2debc	2026-04-28	ebd1e442a3	2026-04-28	2	AP_Motors: fix setting of RSC_MODE param while disarmed	AP_MotorsHeli: Rework of Heli Rotor Speed Control library
+1146e2debc	2026-04-28	9d4428db45	2026-04-28	1	AP_Motors: fix setting of RSC_MODE param while disarmed	AP_Motors: reorganize methods into private and public
+266d5699cd	2026-04-28	ebd1e442a3	2026-04-28	13	AP_Motors: make suggested fixes	AP_MotorsHeli: Rework of Heli Rotor Speed Control library
+a9ad30dbf9	2026-04-27	c216158dff	2025-12-17	1	AC_WPNav: Fix sign mistake in a sub-part of BendyRulerHorizontal	AC_WPNav: NEU to NED renaming - No compiler change
+55a6b081ce	2026-03-25	d8a9394aac	2026-02-05	1	AP_AHRS: add using_gps_for_posxy and fix recorded origin check	AP_AHRS: add options to save and use last valid origin
+402a9376b4	2026-03-24	fe483aa8af	2026-03-24	13	AC_Fence: add _m suffix to altitude getters and fix comments	AC_Fence: specify alt frame for min and max fences separately
+815227fc13	2026-03-18	69f563c36d	2025-05-02	1	Copter: wp speed tuning fix for overshoot	Copter: add units and frames to AC_WPNav methods
+ff0448a9cd	2026-03-06	fab4b5e65b	2026-02-03	5	Revert "Copter: skip esc calibration startup check for DSHOT ESCs"	Copter: skip esc calibration startup check for DSHOT ESCs
+fef403e5c7	2026-03-05	e13b842ad3	2025-07-08	1	AC_PrecLand: Correct yaw rotation in when using LOCAL_FRD mav frame.	AC_PrecLand: support LOCAL_FRD frame
+4959ff6824	2026-03-05	eaeae81b91	2026-02-04	5	AC_AttitudeControl: Fix Yaw Slew Limit	AC_AttitudeControl: Real time S-Curve Command Model
+b10ea90714	2026-02-24	f4069f57d9	2025-05-28	2	Copter: Fix AHRS Trim scale problem	Copter: Use cd_to_rad and remove radians(XXX * 0.01f);
+d6f64dac94	2026-02-10	986c4a4e19	2025-12-17	1	Copter: Fix sign of init_pos_terrain_D_m input	Copter: NEU to NED renaming - Conversion
+efb5b57a2d	2026-02-04	3038c70637	2025-05-31	5	Copter: Fix constant guided reinitialisation problem	Copter: Add missing mode_guided.init(true) and whitespace fix
+0612b9d15d	2026-01-26	f8f720a0c0	2025-07-07	1	ArduCopter: fix roll truncation in level determination	Copter: remove most of the _cd() functions
+042ae97d01	2026-01-26	63a2423942	2025-11-21	1	ArduCopter: fix altitude truncation in RTL descent	Copter: Add _U_m accessors for altitude.
+00f9265c68	2026-01-04	7a8cc3815f	2025-12-17	1	Copter: correct sign of target Ascent altitude after payload place	Copter: NEU to NED renaming - No compiler change
+3bdc10fe33	2025-12-30	7a8cc3815f	2025-12-17	1	Copter: Fix compilation in mode_sport.cpp	Copter: NEU to NED renaming - No compiler change
+8b80f963e3	2025-12-17	7e03cfb3a9	2025-09-26	2	Copter: Fix NEU to NED comments	Copter: Convert to postype
+1fc79cdd48	2025-12-17	ef7c4935bd	2025-09-26	2	AP_Math: Fix NEU to NED comments	AP_Math: Convert to postype
+346f852a92	2025-12-17	1f90c7eb3d	2025-12-17	3	AC_PosControl: correct param conversion comments	AC_PosControl: param conversion for change to NED
+ca916c4649	2025-12-17	7a8cc3815f	2025-12-17	1	Copter: Throw Mode: Fix throw_height_good calculation	Copter: NEU to NED renaming - No compiler change
+17a820d435	2025-12-02	6df1d293b9	2025-07-29	4	AC_Circle: correct distance-to-edge calculations	AC_WPNav: AC_Circle: Convert from cm to m
+17a820d435	2025-12-02	8e030fc4ac	2025-09-26	1	AC_Circle: correct distance-to-edge calculations	AC_WPNav: Convert to postype
+f54d0c93f2	2025-12-01	d98bad1c09	2025-11-28	3	AP_AHRS: correct use of AHRS_EKF_TYPE value rather than canonicalised type	AP_AHRS: rename ekf_type to configured_ekf_type to clarify its use
+b07775a4dc	2025-11-21	48c07d666d	2025-08-07	23	Copter: AC_PosControl: Correct sign of speed_down_ms to positive	Copter: Address PR feedback
+b07775a4dc	2025-11-21	fe753fe7b7	2025-08-15	5	Copter: AC_PosControl: Correct sign of speed_down_ms to positive	Copter: Convert Land to meters
+63d1bd7b0f	2025-11-21	d279818a1a	2025-07-24	1	AC_WPNav: Correct sign of speed and acceleration limits	AC_WPNav: Convert to m and add cm accessors
+63d1bd7b0f	2025-11-21	f9735e68eb	2025-08-05	1	AC_WPNav: Correct sign of speed and acceleration limits	AC_WPNav: AC_PosControl: Fix units on set_correction_speed_accel_U
+3af1094f10	2025-11-12	ceb5ad848a	2025-08-15	1	Copter: correct unit for logged CTUN.BAlt field	Copter: Address PR feedback
+7811979ca6	2025-10-13	7e45e20885	2025-09-26	4	Copter: Fix use of body_to_earth2D and body_to_earth2D_p	Copter: Replace rotate_body_frame_to_NE with body_to_earth2D
+60710b290e	2025-10-13	6b7fc2c27e	2025-09-26	3	AP_AHRS: Fix output type of body_to_earth2D_p	AHRS: Add body_to_earth2D_p
+62ef39b241	2025-08-19	5dbe7b9d7a	2025-08-13	1	Copter: Fix LOITER_TURNS zero radius bug	Copter: Convert Mode Auto to meters
+2e9f0f1f61	2025-08-13	e13b842ad3	2025-07-08	2	AC_PrecLand: Fix Vector3f () to {}	AC_PrecLand: support LOCAL_FRD frame
+6bf14aa5f9	2025-08-13	d279818a1a	2025-07-24	2	AC_WPNav: Fix Vector3f () to {}	AC_WPNav: Convert to m and add cm accessors
+6bf14aa5f9	2025-08-13	6df1d293b9	2025-07-29	1	AC_WPNav: Fix Vector3f () to {}	AC_WPNav: AC_Circle: Convert from cm to m
+9e3c83bc50	2025-08-13	d089385ec3	2025-06-18	3	AC_AttitudeControl: Fix Vector3f () to {}	AC_AttitudeControl: Add units to 6DoF and TS attitude functions
+4141bf4675	2025-08-13	9def2ecf62	2025-08-13	9	Copter: Fix Vector3f () to {}	Copter: Convert LUA Guided accessors to meters
+4141bf4675	2025-08-13	1a4f8b738e	2025-08-13	3	Copter: Fix Vector3f () to {}	Copter: Convert Mode Guided to meters
+5d2d8a040b	2025-08-13	1a4f8b738e	2025-08-13	1	Copter: Fixed unit conversion bug in Mode_Guided	Copter: Convert Mode Guided to meters
+7f25d3efbf	2025-08-13	1a4f8b738e	2025-08-13	1	Copter: Fixed unit conversion bug in Mode_Guided	Copter: Convert Mode Guided to meters
+a1e5d47248	2025-08-13	654cc97520	2025-08-13	1	Copter: Fixed unit conversion bug in Mode_Follow	Copter: Convert Mode Follow to meters
+61bcd318e8	2025-08-13	5dbe7b9d7a	2025-08-13	1	Copter: Fix payload place unit conversion bug	Copter: Convert Mode Auto to meters
+3723c3cd04	2025-08-13	b90b23e1e7	2025-08-13	14	Copter: Fix argument axis speed_ne_ms	Copter: Convert set_speed setters to meters
+bf471a8a07	2025-08-07	07b4065097	2025-08-07	3	Copter: Add units to do_user_takeoff and fix bug	Copter: Convert takeoff to meters
+bf471a8a07	2025-08-07	a1049c540c	2025-08-05	2	Copter: Add units to do_user_takeoff and fix bug	Copter: Takeoff: Fix/Add units and axis
+5e26bf6b7f	2025-08-05	69f563c36d	2025-05-02	5	Copter: Mode Circle: Fix naming and units	Copter: add units and frames to AC_WPNav methods
+e944b8c776	2025-08-05	a578bf6275	2025-06-24	5	Copter: Fix get_pilot_desired_climb_rate_cms	Copter: Fix units on target_climb_rate
+e87b322d84	2025-08-05	a353ce05ba	2025-07-11	3	AC_AttitudeControl: AC_PosControl: Fix units in land_at_climb_rate	AC_AttitudeControl: AC_PosControl: Convert to m except IMAX
+c52a95b7d2	2025-08-05	98b9f56dda	2025-08-05	14	Copter: Guided: Fix/Add units and axis	Copter: GCS_MAVLink: Fix units and axis
+189088de0b	2025-08-05	69f563c36d	2025-05-02	8	Copter: Avoidance_ADSB: Fix/Add units and axis	Copter: add units and frames to AC_WPNav methods
+35d8e70d74	2025-08-05	69f563c36d	2025-05-02	8	Copter: Auto: Fix/Add units and axis	Copter: add units and frames to AC_WPNav methods
+63a3515326	2025-08-05	b344ac893a	2025-06-16	2	Copter: ZigZag: Fix/Add units and axis	Copter: Zigzag units
+98b9f56dda	2025-08-05	6a555bb365	2025-07-08	7	Copter: GCS_MAVLink: Fix units and axis	Copter: Support - Guided: Change cd to rad
+cc08f59eb8	2025-08-05	69f563c36d	2025-05-02	9	Copter: AC_PosControl: Fix units on set_correction_speed_accel_U	Copter: add units and frames to AC_WPNav methods
+f9735e68eb	2025-08-05	d279818a1a	2025-07-24	1	AC_WPNav: AC_PosControl: Fix units on set_correction_speed_accel_U	AC_WPNav: Convert to m and add cm accessors
+9217217573	2025-08-05	a353ce05ba	2025-07-11	3	AC_AttitudeControl: AC_PosControl: Fix units on set_correction_speed_accel_U	AC_AttitudeControl: AC_PosControl: Convert to m except IMAX
+f81c8354ab	2025-08-01	4f9aee3f9e	2025-05-02	2	AC_WPNav: AC_WPNav_OA: Fix variable axis and units	AC_WPNav: add units and frames to AC_WPNav methods
+f97d4372db	2025-08-01	4f9aee3f9e	2025-05-02	24	AC_WPNav: AC_Loiter: Fix variable axis and units	AC_WPNav: add units and frames to AC_WPNav methods
+45be69087c	2025-07-29	68a358366d	2025-07-29	1	AC_WPNav: AC_Circle: Fix rotation rate parameter getter	AC_WPNav: AC_Circle: Move to radians internally
+0cb35c1efc	2025-07-24	4f9aee3f9e	2025-05-02	11	AC_WPNav: AC_Circle: Fix white space	AC_WPNav: add units and frames to AC_WPNav methods
+6bc21c3a94	2025-07-24	4f9aee3f9e	2025-05-02	3	AC_WPNav: AC_WPNav_OA: Fix white space	AC_WPNav: add units and frames to AC_WPNav methods
+6bc21c3a94	2025-07-24	90f3931655	2025-07-17	1	AC_WPNav: AC_WPNav_OA: Fix white space	AC_WPNav: use is_terrain_alt for clarity
+0922776a85	2025-07-22	c4b091f913	2025-07-09	1	Copter: correct being-tuned check for circle mode stick input	Copter: rename radio_tuning to rc_tuning_param
+b18aae3527	2025-07-17	69f563c36d	2025-05-02	4	Copter: Support AC_WPNav: Fix units on set_wp_destination_NED	Copter: add units and frames to AC_WPNav methods
+d83d47d799	2025-07-17	4f9aee3f9e	2025-05-02	6	AC_WPNav: Fix units on set_wp_destination_NED	AC_WPNav: add units and frames to AC_WPNav methods
+fab326808a	2025-07-17	90f3931655	2025-07-17	8	WPNav: Add/Fix Frame and Units	AC_WPNav: use is_terrain_alt for clarity
+a8b771bf01	2025-07-17	4f9aee3f9e	2025-05-02	14	AC_WPNav: Fix destination units in variables and comments	AC_WPNav: add units and frames to AC_WPNav methods
+2193434e4c	2025-07-08	e13b842ad3	2025-07-08	2	AC_PrecLand: mavlink backend fix to distance	AC_PrecLand: support LOCAL_FRD frame
+4f20cc2442	2025-07-01	089b70ca72	2025-07-01	1	Copter: Apply AC_Avoid: Fix unit naming	Copter: Convert copter to radians
+4f20cc2442	2025-07-01	f8a448d3c5	2025-06-19	1	Copter: Apply AC_Avoid: Fix unit naming	Copter: Add and fix variable units
+90816a4168	2025-07-01	00b94dd73e	2025-07-01	1	AC_Avoid: Fix unit naming	AC_Avoidance: Convert copter to radians
+90816a4168	2025-07-01	4c9dad1f53	2025-06-23	1	AC_Avoid: Fix unit naming	AC_Avoidance: Names and Units
+a578bf6275	2025-06-24	7d8c8eca1c	2025-06-24	10	Copter: Fix units on target_climb_rate	Copter: Change heading to radians
+33eeb6af30	2025-06-21	f8a448d3c5	2025-06-19	5	Copter: Fix ACRO level bug	Copter: Add and fix variable units
+e567ca1940	2025-06-19	d089385ec3	2025-06-18	4	AC_AttitudeControl: Fix variable units	AC_AttitudeControl: Add units to 6DoF and TS attitude functions
+e567ca1940	2025-06-19	ae221b2ced	2025-06-18	2	AC_AttitudeControl: Fix variable units	AC_AttitudeControl: Add units to Sub attitude functions
+6bf50843ae	2025-06-18	c1cbe24f41	2025-06-16	23	Copter: PosHold timing fix	Copter: PosHold units

@@ -1,0 +1,25 @@
+{
+ "case": "flaky_defer",
+ "split": "dev",
+ "branch": "bench/flaky_defer",
+ "good": "cafe67457776027a1bad6e165c409828c1a851e5",
+ "bad": "4fc1097a05bfeae4ddc6f459f7ddb896a64c4666",
+ "culprit": "3a6e61428906e6da394526e3f56b5f206ee3422a",
+ "related": [
+  "3a6e61428906e6da394526e3f56b5f206ee3422a"
+ ],
+ "positions": [
+  20
+ ],
+ "commits": 31,
+ "expect": {
+  "gps_loss": "FAIL"
+ },
+ "kind": "defect",
+ "intent": "defer the EKF failsafe only while the mission computer is alive",
+ "root_cause": "the 'heartbeat' is a placeholder that is true in alternating ~1 s windows, so depending on timing the failsafe is suppressed in some runs (~10% observed)",
+ "good_fix": "use a real companion heartbeat timestamp and fall back to the EKF failsafe action after a timeout",
+ "reported": [
+  "gps_loss"
+ ]
+}

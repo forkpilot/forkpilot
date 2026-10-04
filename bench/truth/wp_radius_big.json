@@ -1,0 +1,22 @@
+{
+ "case": "wp_radius_big",
+ "split": "holdout",
+ "branch": "bench/wp_radius_big",
+ "good": "cafe67457776027a1bad6e165c409828c1a851e5",
+ "bad": "b424817528219917c8fd084a0d5d6583e7dd96e3",
+ "culprit": "5eaeccec5bc5e4d590980c2b30923f054ddc73ee",
+ "related": [
+  "5eaeccec5bc5e4d590980c2b30923f054ddc73ee"
+ ],
+ "positions": [
+  17
+ ],
+ "commits": 31,
+ "expect": {
+  "auto_mission": "DRIFT"
+ },
+ "kind": "intentional",
+ "intent": "smoother corners on survey missions",
+ "root_cause": "WP_RADIUS_M_DEFAULT 2 -> 8 m: AUTO waypoints count as reached 8 m early and corners are cut",
+ "good_fix": "intentional; set WPNAV_RADIUS_M per airframe and re-baseline"
+}

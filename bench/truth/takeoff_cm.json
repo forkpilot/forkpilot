@@ -1,0 +1,23 @@
+{
+ "case": "takeoff_cm",
+ "split": "dev",
+ "branch": "bench/takeoff_cm",
+ "good": "cafe67457776027a1bad6e165c409828c1a851e5",
+ "bad": "3b1c4413c9a77d638478784bed1767400d5aa76b",
+ "culprit": "d428fb19a3ccc0951ce95653bc7b3cd6d1c949c3",
+ "related": [
+  "d428fb19a3ccc0951ce95653bc7b3cd6d1c949c3"
+ ],
+ "positions": [
+  13
+ ],
+ "commits": 31,
+ "expect": {
+  "hover": "FAIL",
+  "square_mission": "FAIL"
+ },
+ "kind": "defect",
+ "intent": "mission computer sends takeoff altitude in centimetres",
+ "root_cause": "MAVLink NAV_TAKEOFF altitude is metres; scaling by 0.01 makes every GUIDED takeoff target ~1/100 of the commanded height",
+ "good_fix": "convert cm to m in the mission computer (or at its interface), keep the flight code in MAVLink units"
+}

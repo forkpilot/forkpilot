@@ -1,0 +1,22 @@
+{
+ "case": "guided_ekf_defer",
+ "split": "dev",
+ "branch": "bench/guided_ekf_defer",
+ "good": "cafe67457776027a1bad6e165c409828c1a851e5",
+ "bad": "45f883e79d27d7067a80775b39384c724a7d6a7c",
+ "culprit": "6b942f0cb298a593b7646492a2c956ccba9cc321",
+ "related": [
+  "6b942f0cb298a593b7646492a2c956ccba9cc321"
+ ],
+ "positions": [
+  11
+ ],
+ "commits": 31,
+ "expect": {
+  "gps_loss": "FAIL"
+ },
+ "kind": "defect",
+ "intent": "mission computer should handle navigation faults in GUIDED",
+ "root_cause": "failsafe_ekf_event() returns early in GUIDED, so no LAND is commanded when the EKF loses position; the vehicle hovers blind and never lands",
+ "good_fix": "defer only while the mission computer is verifiably alive and acting, with a timeout after which the normal EKF failsafe action runs"
+}
