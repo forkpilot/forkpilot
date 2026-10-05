@@ -34,6 +34,26 @@ Oracle (`forkpilot/oracle.py`):
 Suites whose first pass is only a screen (ArduPilot's own autotest, ~400 tests) confirm each drift
 on fresh reruns of both sides (Mann-Whitney, p < 0.01) and replicate it once more.
 
+## Why not `git bisect run` with autotest?
+
+If one autotest test fails on `bad` and passes on `good`, `git bisect run` with that test works,
+and you do not need ForkPilot for that. ForkPilot is for the other cases:
+
+- **No test fails.** Most regressions change behaviour without breaking a pass/fail limit: the
+  vehicle stops later, lands slower, overshoots more. ForkPilot compares metrics against a
+  baseline band (DRIFT), so a change can be found before it becomes a failure.
+- **You do not know which test to bisect on.** Detect runs the whole battery (or all ~400
+  autotest tests) and gives bisect a symptom: scenario, metric and direction.
+- **SITL is noisy.** A single run can differ from the next. Triage reruns each finding, and the
+  autotest suite confirms drifts on fresh runs with a rank test. Without this, a bisect can follow
+  noise to a wrong commit (the PX4 table below has one such case, from before confirm was added).
+- **Some commits do not build.** Bisect skips them and reports the set that contains the culprit.
+- **Someone has to read it.** The result is an evidence file and a report with the culprit diff,
+  the first divergence in telemetry and the reruns, not only a commit hash.
+
+ForkPilot can use autotest as its suite (`--suite autotest`). The two find different things:
+in the blind holdout, each found one regression the other missed.
+
 ## Usage
 
 New here? [docs/quickstart.md](docs/quickstart.md) goes from `pip install -e .` and `forkpilot doctor`
