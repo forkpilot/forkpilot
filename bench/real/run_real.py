@@ -2,6 +2,10 @@
 
   python bench/real/run_real.py poshold_brake_units      # selected cases
   python bench/real/run_real.py --kind escaped            # all cases of one kind
+  python bench/real/run_real.py --cases-file bench/real/candidates_new.json --suite scenarios
+
+A case may name its vehicle (copter, plane, quadplane). Plane and QuadPlane cases build and fly
+`--vehicle plane`; ArduPilot's autotest suite is Copter only, so it skips them.
 
 For each case: baseline = culprit's parent, candidate = culprit, ArduPilot's own Copter autotest
 suite pinned to the parent. Builds happen in a separate worktree (builds/src) so the main
@@ -54,6 +58,12 @@ def series(sha: str, fixes=()) -> tuple[str, str]:
     return git(SRC, "rev-parse", f"{start}^1"), end
 
 
+def vehicle_of(case: dict) -> str:
+    """ForkPilot's vehicle key: QuadPlane is a frame of the plane vehicle."""
+    v = case.get("vehicle", "copter")
+    return "plane" if v in ("plane", "quadplane") else v
+
+
 def score(case: dict, rec: dict, suite: str) -> dict:
     steps = {s["kind"]: s for s in rec.get("steps", [])}
     report = steps.get("detect", {}).get("report", {})
@@ -68,6 +78,7 @@ def score(case: dict, rec: dict, suite: str) -> dict:
     # that includes it)?
     culprit_hit = any(c and c.startswith(case["culprit"][:10]) for c in named)
     row = {"case": case["id"], "kind": case["kind"], "split": case["split"], "suite": suite,
+           "vehicle": case.get("vehicle", "copter"),
            "outcome": rec.get("outcome"),
            "upstream_caught": None if upstream is None else bool(upstream), "upstream_tests": upstream,
            "forkpilot_found": found, "culprit_hit": culprit_hit,
@@ -84,26 +95,32 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("cases", nargs="*")
     ap.add_argument("--kind", choices=["escaped", "series", "negative"])
-    ap.add_argument("--split", choices=["dev", "holdout"])
+    ap.add_argument("--split", help="dev, holdout, holdout2, ...")
+    ap.add_argument("--cases-file", type=Path, default=CASES)
     ap.add_argument("--suite", choices=["autotest", "scenarios"], default="autotest")
     a = ap.parse_args()
-    cases = json.loads(CASES.read_text())["cases"]
+    cases = json.loads(a.cases_file.read_text())["cases"]
     cases = [c for c in cases if (not a.cases or c["id"] in a.cases)
              and (not a.kind or c["kind"] == a.kind) and (not a.split or c["split"] == a.split)]
     RESULTS.mkdir(parents=True, exist_ok=True)
     out = RESULTS / f"{time.strftime('%Y%m%d-%H%M%S')}.json"
     rows = []
     for case in cases:
+        vehicle = vehicle_of(case)
+        if a.suite == "autotest" and vehicle != "copter":
+            print(f"\n=== {case['id']}: skipped, autotest suite is Copter only ===", flush=True)
+            continue
         culprit = case["culprit"]
         parent = git(SRC, "rev-parse", f"{culprit}^1")
         good, bad = parent, culprit
         print(f"\n=== {case['id']} ({case['kind']}) {culprit[:10]} ===", flush=True)
         try:
-            if build(SRC, parent, log=None)[0] is None or build(SRC, culprit, log=None)[0] is None:
+            if (build(SRC, parent, log=None, vehicle=vehicle)[0] is None
+                    or build(SRC, culprit, log=None, vehicle=vehicle)[0] is None):
                 good, bad = series(culprit, [f for f in str(case.get("fix") or "").split(",") if f])
                 n = len(git(SRC, "rev-list", f"{good}..{bad}").split())
                 print(msg("bench.series", good=good[:10], bad=bad[:10], n=n), flush=True)
-            r = investigate(SRC, good, bad, suite=a.suite)
+            r = investigate(SRC, good, bad, suite=a.suite, vehicle=vehicle)
             data = json.loads(r.path.read_text())
             data["_path"] = str(r.path.relative_to(ROOT))
         except Exception:

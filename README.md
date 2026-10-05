@@ -251,11 +251,17 @@ Detection on the 13 real dev cases (12 regressions, 1 negative), both suites, 20
 | Nothing found | 7 | 9 |
 | Negative case | correctly nothing | correctly nothing |
 
-Together the two suites localize 4 of 12. Most misses are behaviours no scenario flies.
+Together the two suites detect 4 of 12. Most misses are behaviours no scenario flies.
+This table measures detection, not bisect: for poshold, body_frame and follow_kinematic the
+range was a single commit (good = parent of the culprit). Bisect over real ranges: guided_fence
+(19 commits, right culprit) and 34795c4f4e (24 commits, found twice from other cases).
 All three scenario hits come from scenarios written after those cases were studied
 (`pilot_sticks` for poshold, `guided_cmds` for body_frame and guided_fence), so they show that
 the method works once a behaviour is flown, not how often a fixed battery catches an unseen bug.
-That is what the blind holdout is for.
+
+Blind holdout2 (5 new cases, method frozen first, one run, 2026-10-05): 3 detected, 1 uncertain,
+1 missed. Each suite found one case the other missed. All ranges were again a single commit, so
+this also tests detection only. Details: [bench/real/holdout2.md](bench/real/holdout2.md).
 
 ## License
 
