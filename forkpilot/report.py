@@ -84,6 +84,13 @@ svg .band{fill:var(--band)}svg .dot-good{fill:var(--good)}svg .dot-bad{fill:var(
 .key{display:inline-block;width:22px;height:0;border-top:3px solid;vertical-align:middle;margin:0 4px 0 12px}
 .key-good{border-color:var(--good)}.key-bad{border-color:var(--bad)}
 .note{background:var(--warn-bg);border-radius:6px;padding:8px 12px;margin:10px 0}
+.hero{padding:18px 20px}.lede{font-size:1.2rem;line-height:1.45;margin:10px 0 4px}.facts{color:var(--muted);margin:0 0 12px}.hero dl.kv{margin-top:14px;font-size:.9rem}
+.next ol{margin:6px 0 0;padding-left:20px}.next li{margin:6px 0}.next pre{margin:4px 0}
+svg .track-good{fill:none;stroke:var(--good);stroke-width:1.6;opacity:.55;stroke-linejoin:round}
+svg .track-bad{fill:none;stroke:var(--bad);stroke-width:1.8;opacity:.9;stroke-linejoin:round}
+svg .track-focus{fill:none;stroke:var(--bad);stroke-width:9;opacity:.16;stroke-linecap:round;stroke-linejoin:round}
+svg .div-ring{fill:none;stroke:var(--fg);stroke-width:1.5}svg .home{fill:var(--fg)}
+svg .susp{fill:var(--shade)}svg .susp-final{fill:var(--bad);opacity:.35}
 footer{margin-top:40px;padding-top:12px;border-top:1px solid var(--line);color:var(--muted);font-size:.9rem}
 @media print{details{display:block}body{background:#fff}}
 """
@@ -262,12 +269,96 @@ class Inv:
 
 # -------------------------------------------------------------- sections
 
+def _th(key: str, **parts: str) -> str:
+    """A catalogue sentence with HTML parts: the sentence is escaped, the parts are not."""
+    text = _e(t(key, **{k: f"\x00{k}\x00" for k in parts}))
+    for k, html in parts.items():
+        text = text.replace(f"\x00{k}\x00", html)
+    return text
+
+
+def _mean(xs: list[float]) -> float | None:
+    xs = [x for x in xs if isinstance(x, (int, float)) and math.isfinite(x)]
+    return sum(xs) / len(xs) if xs else None
+
+
+def lead(v: Inv) -> tuple[str, dict] | None:
+    """The scenario and finding the report leads with."""
+    for name in plotted_scenarios(v):
+        h = headline(v, name)
+        if h:
+            return name, h
+    return None
+
+
+def lede(v: Inv) -> str:
+    """One sentence: what changed, by how much, after which commit."""
+    c = v.rec.get("culprit") or {}
+    ld = lead(v)
+    if v.outcome != "localized" or not c.get("culprit") or not ld:
+        return _e(t("report.outcome." + v.outcome + ".text"))
+    name, f = ld
+    commit = f'<code>{_e(c["culprit"][:10])}</code> <strong>{_e(c.get("subject", ""))}</strong>'
+    parts = {"commit": commit, "scenario": f"<code>{_e(name)}</code>", "metric": f'<code>{_e(f["metric"])}</code>'}
+    unit = unit_of(f["metric"])
+    u = f" {unit}" if unit else ""
+    if f["kind"] == "rule":
+        if f["metric"] == "completed":
+            return _th("report.lede.incomplete", **parts)
+        return _th("report.lede.rule", bad=_e(num_text(f["value"]) + u), expected=_e(expected_text(f)), **parts)
+    good = _mean([m.get(f["metric"]) for m in metric_files(v.good_source(name)[0], name)])
+    if good is None and f["lo"] is not None:
+        good = (f["lo"] + f["hi"]) / 2
+    bad = f["value"]
+    if good is None or bad != bad:
+        return _th("report.lede.change.nogood", bad=_e(num_text(bad) + u), **parts)
+    vals = _e(f"{good:.3g} → {bad:.3g}{u}")
+    if abs(good) < 1e-6:
+        return _th("report.lede.change", values=vals, **parts)
+    pct = _e(t("report.pct", p=f"{abs(bad - good) / abs(good) * 100:.0f}"))
+    return _th("report.lede.up" if bad > good else "report.lede.down", pct=pct, values=vals, **parts)
+
+
+def facts(v: Inv) -> str:
+    c, ld = v.rec.get("culprit") or {}, lead(v)
+    out = []
+    if ld and v.triage.get(ld[0]):
+        tr = v.triage[ld[0]]
+        out.append(t("report.facts.runs", k=tr.get("non_pass", 0), n=tr.get("runs", 0)))
+    if c.get("range") == 1:
+        out.append(t("report.facts.single"))
+    elif c.get("tests") is not None and c.get("range"):
+        out.append(t("report.facts.search", k=c["tests"], n=c["range"]))
+    if v.steps:
+        out.append(_dur(max(s.get("at_s", 0) for s in v.steps)))
+    return " · ".join(out)
+
+
+def map_figure(v: Inv, name: str, metric: str) -> str:
+    tl = divergence_of(v, name)
+    good_dir, _ = v.good_source(name)
+    fig = plots.ground_track(metric, run_files(good_dir, name), run_files(v.bad_dir, name),
+                             tl.get("first_divergence_t") if tl else None)
+    if not fig:
+        return ""
+    note = t("report.map.zoom", metric=metric) if fig["zoom"] else t("report.map.note")
+    return f'{fig["svg"]}{plots.legend(fig["good"], fig["bad"], band=False)}<p class="muted">{_e(note)}</p>'
+
+
 def sec_summary(v: Inv) -> str:
     r, c = v.rec, v.rec.get("culprit") or {}
     repo = r.get("repo")
     cls = {"localized": "fail", "no_regression": "pass"}.get(v.outcome, "drift")
-    out = [f'<div class="card"><div class="verdict"><span class="badge {cls}">{_e(t("report.outcome." + v.outcome))}'
-           f'</span><span class="big">{_e(t("report.outcome." + v.outcome + ".text"))}</span></div><dl class="kv">']
+    out = [f'<div class="card hero"><div class="verdict"><span class="badge {cls}">{_e(t("report.outcome." + v.outcome))}'
+           f'</span></div><p class="lede">{lede(v)}</p>']
+    if v.outcome == "localized" and facts(v):
+        out.append(f'<p class="facts">{_e(facts(v))}</p>')
+    if c.get("caution"):
+        out.append(f'<p class="note">{_e(t("ev.caution." + c["caution"]))}</p>')
+    ld = lead(v)
+    if ld:
+        out.append(map_figure(v, ld[0], ld[1]["metric"]))
+    out.append('<dl class="kv">')
 
     def kv(k, val):
         if val not in ("", None):
@@ -299,6 +390,66 @@ def sec_summary(v: Inv) -> str:
     kv("report.k.id", f'<code>{_e(v.dir.name)}</code>')
     out.append("</dl></div>")
     return "".join(out)
+
+
+def _home_rel(path: str | None) -> str:
+    """~/x for a path under the home directory: shorter, and no user name in a shared report."""
+    if not path:
+        return ""
+    try:
+        return "~/" + Path(path).relative_to(Path.home()).as_posix()
+    except ValueError:
+        return path
+
+
+def _web_commit(repo: str | None, sha: str) -> str:
+    """The commit's page on GitHub, as text, when the checkout's origin is on GitHub and an origin
+    branch has the commit (a local-only commit has no page)."""
+    url = _git(repo, "remote", "get-url", "origin")
+    m = re.fullmatch(r"(?:https://github\.com/|git@github\.com:)([\w.-]+/[\w.-]+?)(?:\.git)?/?", url)
+    if not m or not _git(repo, "branch", "-r", "--contains", sha, "--list", "origin/*"):
+        return ""
+    return f"https://github.com/{m[1]}/commit/{sha}"
+
+
+def context_at(v: Inv, name: str, div: float) -> str:
+    """Mode and last mission item of the first bad run when it first parted from good."""
+    run = plots.load_run(next(iter(run_files(v.bad_dir, name, 1)), Path("/nonexistent")))
+    if not run:
+        return ""
+    at = plots._arm_time(run) + div
+    mode = item = None
+    for t_, k, d in run["events"]:
+        if t_ > at:
+            break
+        if k == "mode":
+            mode = d
+        elif k == "statustext" and str(d).startswith("Mission: "):
+            item = str(d)[9:]
+    return " · ".join(str(x) for x in (mode, item) if x)
+
+
+def sec_next(v: Inv) -> str:
+    c, ld = v.rec.get("culprit") or {}, lead(v)
+    if v.outcome != "localized" or not c.get("culprit") or not ld:
+        return ""
+    name, sha = ld[0], c["culprit"]
+    items = []
+    tl = divergence_of(v, name)
+    div = tl.get("first_divergence_t") if tl else None
+    ctx = context_at(v, name, div) if div is not None else ""
+    if div is not None and ctx:
+        items.append(_th("report.next.fly.at", scenario=f"<code>{_e(name)}</code>", t=_e(f"{div:g}"), context=f"<strong>{_e(ctx)}</strong>"))
+    else:
+        items.append(_th("report.next.fly", scenario=f"<code>{_e(name)}</code>"))
+    web = _web_commit(v.rec.get("repo"), sha)
+    items.append(_th("report.next.intent", commit=f"<code>{_e(sha[:10])}</code>")
+                 + (f"<br><code>{_e(web)}</code>" if web else ""))
+    cmd = (f"forkpilot investigate --repo {_home_rel(v.rec.get('repo')) or '<your clone>'} --good {sha[:10]}^ "
+           f"--bad {sha[:10]} --only {name} --report")
+    items.append(_e(t("report.next.repro")) + f"<pre>{_e(cmd)}</pre>")
+    return (f'<div class="card next"><strong>{_e(t("report.h.next"))}</strong><ol>'
+            + "".join(f"<li>{i}</li>" for i in items) + "</ol></div>")
 
 
 def direction(f: dict) -> str:
@@ -408,6 +559,10 @@ def sec_plots(v: Inv) -> str:
             out.append(f'<p class="note">{_e(t("report.plot.notelemetry"))}</p>')
             continue
         drawn = True
+        if name != (lead(v) or ('',))[0]:
+            m = map_figure(v, name, h["metric"])
+            if m:
+                out.append(f'<p class="muted">{_e(t("report.map.title"))}</p>{m}')
         if fig["zoom"]:
             out.append(f'<p class="muted">{_e(t("report.plot.zoom"))}</p>{fig["zoom"]}')
         out.append(f'<p class="muted">{_e(t("report.plot.flight"))}</p>{fig["flight"]}')
@@ -448,6 +603,20 @@ def band_rows(v: Inv, names: list[str]) -> list[BandRow]:
     return [r for _, r in cand[:MAX_BAND_ROWS]]
 
 
+def bisect_figure(v: Inv, tests: list[dict]) -> str:
+    """The narrowing drawn over the range; needs the checkout for the order of the commits."""
+    r = v.rec
+    commits = _git(r.get("repo"), "rev-list", "--reverse", "--first-parent", f"{r.get('good')}..{r.get('bad')}").split()
+    index = {sha: i for i, sha in enumerate(commits)}
+    if not commits or any(s.get("sha") not in index for s in tests):
+        return ""
+    rows = [(index[s["sha"]], s.get("result", ""), f'{i}  {s["sha"][:10]}  {t("report.bisect." + s["result"]) if s.get("result") else ""}')
+            for i, s in enumerate(tests, 1)]
+    culprit = index.get((r.get("culprit") or {}).get("culprit"))
+    return (plots.bisect_strip(len(commits), rows, culprit)
+            + f'<p class="muted">{_e(t("report.bisect.strip", n=len(commits), k=len(tests)))}</p>')
+
+
 def sec_bisect(v: Inv) -> str:
     tests = v.all_steps("bisect_test")
     if not tests:
@@ -478,7 +647,7 @@ def sec_bisect(v: Inv) -> str:
     c = v.rec.get("culprit") or {}
     amb = f'<p class="note">{_e(t("report.bisect.ambiguous", shas=", ".join(x[:10] for x in c["ambiguous_with"])))}</p>' \
         if c.get("ambiguous_with") else ""
-    return (f"<h2>{_e(t('report.h.bisect'))}</h2><p class=\"muted\">{_e(t('report.bisect.note'))}</p>"
+    return (f"<h2>{_e(t('report.h.bisect'))}</h2>{bisect_figure(v, tests)}<p class=\"muted\">{_e(t('report.bisect.note'))}</p>"
             f'<div class="scroll"><table><thead><tr>{head}</tr></thead><tbody>{"".join(rows)}</tbody></table></div>{amb}')
 
 
@@ -645,7 +814,7 @@ def _before_after(rows: list[dict]) -> str:
 
 def build(inv_dir: Path) -> str:
     v = Inv(inv_dir)
-    body = [sec_summary(v), sec_verdicts(v), sec_plots(v), sec_bisect(v), sec_coverage(v), sec_diff(v), sec_explanation(v), sec_fix(v)]
+    body = [sec_summary(v), sec_next(v), sec_verdicts(v), sec_plots(v), sec_bisect(v), sec_coverage(v), sec_diff(v), sec_explanation(v), sec_fix(v)]
     lang = current_lang()
     return (f'<!doctype html><html lang="{lang}"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'

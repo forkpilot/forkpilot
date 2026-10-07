@@ -10,8 +10,14 @@ a verdict: every claim it makes is either quoted from the evidence or checked by
 
 Simulation results do not replace flight tests. They narrow down what to test.
 
-Example: [docs/example/report.html](docs/example/report.html), the report of a hidden regression in a
-synthetic fork (download it and open it in a browser).
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/report-dark.png">
+  <img alt="Top of a ForkPilot report: after commit 29b614b173, the auto_mission scenario no longer completes its flight; a map seen from above shows the good runs flying the square and the bad runs overshooting the corner, with a ring where they first part." src="docs/img/report-light.png" width="820">
+</picture>
+
+The top of a report, on a hidden regression in a synthetic fork: one commit, presented as a
+refactor, makes the copter overshoot the mission corners. Full report:
+[docs/example/report.html](docs/example/report.html) (download it and open it in a browser).
 
 ## What it has found
 
@@ -129,9 +135,12 @@ Output is English. `--lang tr` (before the command, or on `investigate`, `explai
 prompts to Turkish. Texts live in `forkpilot/i18n.py`, one dict per language.
 
 `report.html` has no script and makes no request (inline CSS and SVG, light and dark): it opens on an
-air-gapped network. Sections: verdict summary, verdict per scenario, good-against-bad telemetry
-and baseline-band plots, bisect trail, coverage of the changed lines, culprit diff, explanation, fix candidates. A missing file
-drops its section.
+air-gapped network. It opens with the answer in one sentence (which commit changed which metric in
+which scenario, and by how much) and a map of the flight seen from above, good against bad, with
+the point where they first part. Then: what to check next (what to flight-test first, the
+commit to read, the command that reproduces it), verdict per scenario, good-against-bad telemetry
+and baseline-band plots, the bisect trail, coverage of the changed lines, culprit diff,
+explanation, fix candidates. A missing file drops its section.
 
 LLM backends:
 

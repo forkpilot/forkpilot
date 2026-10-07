@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+- Report: it opens with the answer in one sentence: "After <commit>, <metric> in <scenario> fell
+  46% (9.2 → 5 m)", then how many runs show it and how many test builds the search took.
+- Report: a ground-track map, top-down and to scale, good runs against bad, with a ring where the
+  first bad run parts from the good ones. When the metric measures a short part of the flight
+  (a stop, a hold), the map shows only that part of each run, drawn from a common start.
+- Report: a "What to check next" box: what to flight-test first (the moment and mode where good
+  and bad part), the commit to read (its GitHub page when an origin branch has it) and the
+  command that reproduces the finding alone.
+- Report: the bisect trail as a strip: the suspect range before each test, narrowing to the culprit.
+- The example report (`docs/example/report.html`) is rendered again with these.
+- README: an image of the top of the example report.
+- Report map: the "first divergence" label goes where it covers the fewest track points.
+
 ## 0.2.0 (2026-10-07)
 
 - Install: `setuptools<81` is now a dependency. ArduPilot's DroneCAN generator in older trees

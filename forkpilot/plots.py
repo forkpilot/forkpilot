@@ -166,8 +166,8 @@ def _polylines(xs, ys, X, Y, cls) -> list[str]:
     return [f'<polyline class="line-{cls}" points="{" ".join(c)}"/>' for c in out]
 
 
-def legend(good_n: int, bad_n: int) -> str:
-    good = (f'<span class="key key-good"></span>{escape(t("plot.legend.good", n=good_n))} ' if good_n
+def legend(good_n: int, bad_n: int, band: bool = True) -> str:
+    good = (f'<span class="key key-good"></span>{escape(t("plot.legend.good" if band else "plot.legend.good.lines", n=good_n))} ' if good_n
             else f'{escape(t("plot.legend.nogood"))} ')
     return f'<p class="legend">{good}<span class="key key-bad"></span>{escape(t("plot.legend.bad", n=bad_n))}</p>'
 
@@ -615,3 +615,159 @@ def telemetry_figure(metric: str, good_paths: list[Path], bad_paths: list[Path],
                         label=t("plot.flight.label", metric=metric), panel_h=130)
     return {"zoom": zoom, "flight": flight, "good": sum(k[0] == "good" for k in wins),
             "bad": sum(k[0] == "bad" for k in wins)}
+
+
+# ---------------------------------------------------------------- ground track
+
+def _thin(pts: list, n: int = 600) -> list:
+    step = max(1, len(pts) // n)
+    return pts[::step] + ([pts[-1]] if pts and (len(pts) - 1) % step else [])
+
+
+def _pos_at(run: dict, t_abs: float):
+    p = _pos(run)
+    return min(p, key=lambda s: abs(s["t"] - t_abs)) if p else None
+
+
+def ground_track(metric: str, good_paths: list[Path], bad_paths: list[Path],
+                 divergence_t: float | None = None, width: float = 760) -> dict | None:
+    """The flights seen from above (north up, to scale): good runs, bad runs and where they first
+    part. When the metric measures a short part of the flight (a stop, a hold), the map shows
+    that part of every run, which is where the difference is. {"svg", "good", "bad", "zoom"} or None."""
+    good = [r for r in map(load_run, good_paths) if r and _pos(r)]
+    bad = [r for r in map(load_run, bad_paths) if r and _pos(r)]
+    if not bad:
+        return None
+    spec = spec_for(metric)
+
+    def track(run, win):
+        return [(s["y"], s["x"]) for s in _pos(run) if win[0] <= s["t"] <= win[1]]     # (east, north)
+
+    def part(run):
+        w = None if spec.whole else spec.window(run)
+        whole = track(run, w_whole(run))
+        sub = track(run, w) if w else []
+        return whole, sub
+    runs = [("good", r, *part(r)) for r in good] + [("bad", r, *part(r)) for r in bad]
+    runs = [x for x in runs if len(x[2]) > 1]
+    if not any(x[0] == "bad" for x in runs):
+        return None
+    # a window that is most of the flight marks nothing: show the whole flight
+    zoom = all(len(sub) > 1 and len(sub) < 0.8 * len(whole) for side, _, whole, sub in runs if side == "bad")
+    tracks = [(side, sub if zoom and len(sub) > 1 else whole) for side, _, whole, sub in runs]
+    if zoom:                           # each part from its own start: the runs overlay and compare
+        tracks = [(side, [(e - tr[0][0], n - tr[0][1]) for e, n in tr]) for side, tr in tracks if len(tr) > 1]
+    marks = []                         # (east, north, side) where good and bad first part
+    if divergence_t is not None and not zoom:
+        for side, runs_ in (("good", good), ("bad", bad)):
+            if runs_:
+                q = _pos_at(runs_[0], _arm_time(runs_[0]) + divergence_t)
+                if q:
+                    marks.append((q["y"], q["x"], side))
+    es = [e for _, tr in tracks for e, _ in tr] + ([] if zoom else [0.0])
+    ns = [n for _, tr in tracks for _, n in tr] + ([] if zoom else [0.0])
+    e0, e1 = pad_range(min(es), max(es), zero=False)
+    n0, n1 = pad_range(min(ns), max(ns), zero=False)
+    ml, mr, mt, mb, hmax, hmin = 56, 14, 14, 38, 400.0, 220.0
+    pw = width - ml - mr
+    if (n1 - n0) / (e1 - e0) * pw > hmax:      # tall: fit the height, keep the scale equal on both axes
+        scale = hmax / (n1 - n0)
+        mid, half = (e0 + e1) / 2, pw / scale / 2
+        e0, e1 = mid - half, mid + half
+    else:
+        scale = pw / (e1 - e0)
+    ph = (n1 - n0) * scale
+    if ph < hmin:                              # flat: more north range around the same centre
+        mid, half = (n0 + n1) / 2, hmin / scale / 2
+        n0, n1, ph = mid - half, mid + half, hmin
+    X = lambda e: ml + (e - e0) * scale
+    Y = lambda n: mt + ph - (n - n0) * scale
+    h = mt + ph + mb
+    out = [svg_open(width, h, t("plot.map.label", metric=metric))]
+    out.append(f'<rect class="frame" x="{ml}" y="{mt}" width="{pw:.1f}" height="{ph:.1f}"/>')
+    for tv in nice_ticks(e0, e1, 10):
+        out.append(f'<line class="grid" x1="{X(tv):.1f}" x2="{X(tv):.1f}" y1="{mt}" y2="{mt + ph:.1f}"/>')
+        out.append(_txt(X(tv), mt + ph + 15, fmt(tv)))
+    for tv in nice_ticks(n0, n1, 6):
+        out.append(f'<line class="grid" x1="{ml}" x2="{ml + pw:.1f}" y1="{Y(tv):.1f}" y2="{Y(tv):.1f}"/>')
+        out.append(_txt(ml - 6, Y(tv) + 4, fmt(tv), anchor="end"))
+    out.append(_txt(ml + pw / 2, h - 5, t("plot.map.east.rel" if zoom else "plot.map.east"), "ylab"))
+    out.append(_txt(0, 0, t("plot.map.north.rel" if zoom else "plot.map.north"), "ylab", "middle",
+                    f' transform="translate(13 {mt + ph / 2:.1f}) rotate(-90)"'))
+    pl = lambda tr, cls: ('<polyline class="' + cls + '" points="'
+                          + " ".join(f"{X(e):.1f},{Y(n):.1f}" for e, n in _thin(tr)) + '"/>')
+    for side in ("good", "bad"):
+        out += [pl(tr, "track-" + side) for sd, tr in tracks if sd == side]
+    if zoom:                            # where each run's part ends, and the common start
+        for side, tr in tracks:
+            out.append(f'<circle class="dot-{side}" cx="{X(tr[-1][0]):.1f}" cy="{Y(tr[-1][1]):.1f}" r="2.5"/>')
+        out.append(f'<circle class="home" cx="{X(0):.1f}" cy="{Y(0):.1f}" r="3.5"/>')
+        out.append(_txt(X(0) + 7, Y(0) - 6, t("plot.map.start"), "mark-t", "start"))
+    else:
+        out.append(f'<circle class="home" cx="{X(0):.1f}" cy="{Y(0):.1f}" r="3.5"/>')
+        out.append(_txt(X(0) + 7, Y(0) - 6, t("plot.map.home"), "mark-t", "start"))
+    pts = {side: (X(e), Y(n)) for e, n, side in marks}
+    if "bad" in pts:
+        bx, by = pts["bad"]
+        if "good" in pts:
+            gx, gy = pts["good"]
+            out.append(f'<line class="mark" x1="{gx:.1f}" y1="{gy:.1f}" x2="{bx:.1f}" y2="{by:.1f}"/>')
+            out.append(f'<circle class="dot-good" cx="{gx:.1f}" cy="{gy:.1f}" r="3.5"/>')
+        out.append(f'<circle class="dot-bad" cx="{bx:.1f}" cy="{by:.1f}" r="3.5"/>')
+        out.append(f'<circle class="div-ring" cx="{bx:.1f}" cy="{by:.1f}" r="9"/>')
+        # the label goes where it crosses the fewest track points, inside the frame
+        label, lw = t("plot.divergence"), 6.5 * len(t("plot.divergence"))
+        xy = [(X(e), Y(n)) for _, tr in tracks for e, n in _thin(tr)]
+        boxes = []                     # (text x, text y, anchor, box x0, y0, x1, y1)
+        for dx, dy in ((13, 4), (13, 22), (13, -12), (-13, 4), (-13, 22), (-13, -12)):
+            x0 = bx + dx if dx > 0 else bx + dx - lw
+            y1 = by + dy + 3
+            if x0 >= ml and x0 + lw <= ml + pw and y1 - 14 >= mt and y1 <= mt + ph:
+                boxes.append((bx + dx, by + dy, "start" if dx > 0 else "end", x0, y1 - 14, x0 + lw, y1))
+        if boxes:
+            tx, ty, anchor = min(boxes, key=lambda b: sum(b[3] <= x <= b[5] and b[4] <= y <= b[6]
+                                                          for x, y in xy))[:3]
+        else:
+            tx, ty, anchor = bx + 13, by + 4, "start"
+        out.append(_txt(tx, ty, label, "mark-t", anchor))
+    out.append("</svg>")
+    return {"svg": "".join(out), "good": len(good), "bad": len(bad), "zoom": zoom}
+
+
+# ---------------------------------------------------------------- bisect strip
+
+def bisect_strip(n: int, tests: list[tuple[int, str, str]], culprit: int | None, width: float = 760) -> str:
+    """How bisect narrowed the range: one row per test, oldest commit left. The bar is what was
+    still suspect before the test, the mark the commit it flew. tests: (index, result, label)."""
+    ml, mr, mt, rh = 14, 190, 30, 24
+    rows = len(tests) + (1 if culprit is not None else 0)
+    h = mt + rows * rh + 8
+    pw = width - ml - mr
+    X = lambda i: ml + (i + 0.5) / n * pw
+    out = [svg_open(width, h, t("plot.bisect.label", n=n))]
+    out.append(_txt(ml, 14, t("plot.bisect.old"), "tick", "start"))
+    out.append(_txt(ml + pw, 14, t("plot.bisect.new", n=n), "tick", "end"))
+    lo, hi = 0, n - 1
+    bar = lambda a, b, y, cls: (f'<rect class="{cls}" x="{ml + a / n * pw:.1f}" y="{y - 5:.1f}" '
+                                f'width="{max((b - a + 1) / n * pw, 2):.1f}" height="10" rx="2"/>')
+    for row, (i, res, label) in enumerate(tests):
+        y = mt + row * rh + rh / 2
+        out.append(f'<line class="grid" x1="{ml}" x2="{ml + pw}" y1="{y:.1f}" y2="{y:.1f}"/>')
+        out.append(bar(lo, hi, y, "susp"))
+        x = X(i)
+        if res == "bad":
+            out.append(f'<path class="dot-bad" d="M{x:.1f} {y - 6:.1f} l6 6 l-6 6 l-6 -6 z"/>')
+            hi = min(hi, i)
+        elif res == "good":
+            out.append(f'<circle class="dot-good" cx="{x:.1f}" cy="{y:.1f}" r="5"/>')
+            lo = max(lo, i + 1)
+        else:
+            out.append(f'<path class="mark" d="M{x - 4:.1f} {y - 4:.1f} l8 8 m0 -8 l-8 8"/>')
+        out.append(_txt(ml + pw + 12, y + 4, label, "tick", "start"))
+    if culprit is not None:
+        y = mt + len(tests) * rh + rh / 2
+        out.append(bar(culprit, culprit, y, "susp-final"))
+        out.append(f'<path class="dot-bad" d="M{X(culprit):.1f} {y - 6:.1f} l6 6 l-6 6 l-6 -6 z"/>')
+        out.append(_txt(ml + pw + 12, y + 4, t("plot.bisect.culprit"), "mark-t", "start"))
+    out.append("</svg>")
+    return "".join(out)

@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import unittest.mock
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -151,12 +152,18 @@ class ReportTest(unittest.TestCase):
     def test_full_report(self):
         html = self.render(make_inv(self.root))
         check_html(self, html)
-        order = [html.index(x) for x in ("LOCALIZED", "Verdict per scenario", "Telemetry", "Bisect trail",
+        order = [html.index(x) for x in ("LOCALIZED", "What to check next", "Verdict per scenario", "Telemetry", "Bisect trail",
                                          "Culprit diff", "Explanation", "Fix candidates", "does not replace flight tests")]
         self.assertEqual(order, sorted(order))
         self.assertIn("Ada Lovelace", html)
         self.assertIn("mode_poshold.cpp", html)
-        self.assertEqual(html.count("<svg"), 3)             # zoom, whole flight, band chart
+        self.assertEqual(html.count("<svg"), 4)             # map, zoom, whole flight, band chart
+        # the answer first: what changed, by how much, after which commit
+        self.assertIn("<code>stop_dist_m_poshold</code> in <code>pilot_sticks</code> fell 46% (9.2 → 5 m)", html)
+        self.assertIn("3 of 3 runs · 2 test builds among 4 commits", html)
+        self.assertIn("<strong>POSHOLD</strong>", html)      # where good and bad part
+        self.assertIn("--good dddddddddd^ --bad dddddddddd --only pilot_sticks", html)
+        self.assertIn("North from the start (m)", html)      # stop metric: the map shows the stops
         self.assertIn("below band", html)
         self.assertIn("unverified", html)                    # the unverified quote stays marked
         self.assertIn("&lt;script&gt;", html)                # build logs are escaped
@@ -171,6 +178,8 @@ class ReportTest(unittest.TestCase):
         self.assertIn('lang="tr"', tr)
         self.assertIn("Uçuş testinin yerini tutmaz", tr)
         self.assertIn("bandın altında", tr)
+        self.assertIn("%46 azaldı", tr)
+        self.assertIn("Sırada ne var", tr)
         self.assertNotIn("bandın altında", en)
 
     def test_partial_investigations_never_crash(self):
@@ -234,6 +243,38 @@ class ReportTest(unittest.TestCase):
         self.assertEqual((f["hi"], f["side"]), (1.0, "+"))
         self.assertEqual(report.parse_finding("garbage")["metric"], "garbage")
 
+    def test_web_commit_and_bisect_strip_from_the_checkout(self):
+        for url in ("git@github.com:ArduPilot/ardupilot.git", "https://github.com/ArduPilot/ardupilot"):
+            with unittest.mock.patch.object(report, "_git", return_value=url):
+                self.assertEqual(report._web_commit("/r", "abc"), "https://github.com/ArduPilot/ardupilot/commit/abc")
+            # a commit no origin branch has (a local fork commit) gets no link
+            with unittest.mock.patch.object(report, "_git", side_effect=[url, ""]):
+                self.assertEqual(report._web_commit("/r", "abc"), "")
+        self.assertEqual(report._home_rel(str(Path.home() / "fp" / "fork")), "~/fp/fork")
+        self.assertEqual(report._home_rel("/srv/fork"), "/srv/fork")
+        with unittest.mock.patch.object(report, "_git", return_value="https://example.com/x.git"):
+            self.assertEqual(report._web_commit("/r", "abc"), "")
+        repo = self.root / "repo"
+        repo.mkdir()
+        git = lambda *a: subprocess.run(["git", "-C", str(repo), *a], capture_output=True, text=True, check=True).stdout.strip()
+        git("init", "-q")
+        shas = []
+        for i in range(5):
+            git("-c", "user.name=a", "-c", "user.email=a@b", "commit", "-q", "--allow-empty", "-m", f"c{i}")
+            shas.append(git("rev-parse", "HEAD"))
+        inv = make_inv(self.root)
+        rec = json.loads((inv / "record.json").read_text())
+        rec.update(repo=str(repo), good=shas[0], bad=shas[4])
+        rec["culprit"]["culprit"] = shas[3]
+        tests = [s for s in rec["steps"] if s["kind"] == "bisect_test"]
+        for s_, sha in zip(tests, (shas[2], shas[3], shas[3])):
+            s_["sha"] = sha
+        (inv / "record.json").write_text(json.dumps(rec))
+        html = self.render(inv)
+        check_html(self, html)
+        self.assertEqual(html.count("<svg"), 5)
+        self.assertIn("3 tests narrowed 4 commits to one", html)
+
     def test_md_fallback_keeps_markers(self):
         html = report.md_html("## Lines\n\n- `a.cpp` **[unverified]**\n  ```\n  code <x>\n  ```\n")
         self.assertIn('<strong class="warn">[unverified]</strong>', html)
@@ -266,6 +307,28 @@ class PlotTest(unittest.TestCase):
             self.assertIn("Time since stick release (s)", fig["zoom"])
             # the plotted maximum of the bad run is its 5 m coast, the good runs' about 9 m
             self.assertIsNone(plots.telemetry_figure("x", [], []))
+
+    def test_ground_track(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            put_runs(tmp / "good", [9.0, 9.2])
+            put_runs(tmp / "bad", [5.0])
+            g, b = plots.run_files(tmp / "good", "pilot_sticks"), plots.run_files(tmp / "bad", "pilot_sticks")
+            stop = plots.ground_track("stop_dist_m_poshold", g, b, 12.0)
+            self.assertTrue(stop["zoom"])                     # a stop: only the stops, from one start
+            self.assertEqual((stop["good"], stop["bad"]), (2, 1))
+            self.assertIn("North from the start (m)", stop["svg"])
+            whole = plots.ground_track("flight_time_s", g, b, 12.0)
+            self.assertFalse(whole["zoom"])                   # whole-flight metric: the whole flight
+            self.assertIn(">home<", whole["svg"])
+            self.assertIn("div-ring", whole["svg"])
+            self.assertIsNone(plots.ground_track("x", g, []))
+
+    def test_bisect_strip(self):
+        svg = plots.bisect_strip(8, [(3, "good", "1"), (5, "bad", "2"), (4, "bad", "3")], 4)
+        self.assertEqual(svg.count('class="dot-bad"'), 3)     # two bad tests and the culprit
+        self.assertEqual(svg.count('class="dot-good"'), 1)
+        self.assertEqual(svg.count('class="susp"'), 3)
 
 
 if __name__ == "__main__":

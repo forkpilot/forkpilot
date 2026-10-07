@@ -13,3 +13,7 @@ Made with:
 forkpilot investigate --repo ardupilot --good cafe674577 --bad bc2e397c5b
 forkpilot --lang en report investigations/<stamp> --out docs/example/report.html
 ```
+
+The good commit's baseline runs had been pruned, so the 5 `auto_mission` runs of `cafe674577`
+were flown again from the cached build for the map (`forkpilot run --binary <cache>/arducopter
+--only auto_mission -n 5`).
