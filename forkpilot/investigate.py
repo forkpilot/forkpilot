@@ -84,7 +84,7 @@ def triage(rec: Record, suite, binary: Path, targets: list[str], bad_dir: Path,
         return [list(f.signature()) for f in report[name][1] if f.kind == "drift" and
                 oracle.confirm_shift([m.get(f.metric) for m in base.get(name, [])],
                                      [m.get(f.metric) for m in cand.get(name, [])], f.side,
-                                     alpha=CONFIRM_ALPHA)]
+                                     alpha=CONFIRM_ALPHA, abs_tol=oracle.noise_tol(name, f.metric))]
 
     first = {name: shifted(name, cand, base) for name in targets}
     again = [name for name in targets if first[name] and name not in infra]
@@ -100,7 +100,7 @@ def triage(rec: Record, suite, binary: Path, targets: list[str], bad_dir: Path,
     out = {}
     for name in targets:
         runs, expect = cand.get(name, []), expect_for(name, suite.dirs)
-        bad_runs = sum(oracle.verdict([m], expect, base.get(name))[0] != "PASS" for m in runs)
+        bad_runs = sum(oracle.verdict([m], expect, base.get(name), name)[0] != "PASS" for m in runs)
         rule_runs = sum(bool(oracle.check_rules(m, expect)) for m in runs)
         base_rule_runs = sum(bool(oracle.check_rules(m, expect)) for m in base.get(name, []))
         rate = bad_runs / len(runs) if runs else 0.0
@@ -240,6 +240,34 @@ def bisect(rec: Record, suite, repo: Path, good: str, bad: str, targets: list[st
     return result
 
 
+VEHICLE_DIRS = {"copter": "ArduCopter", "plane": "ArduPlane", "rover": "Rover", "sub": "ArduSub",
+                "tracker": "AntennaTracker", "blimp": "Blimp"}
+
+
+def _sim_only(f: str) -> bool:
+    name = f.rsplit("/", 1)[-1]
+    return (f.startswith(("libraries/SITL/", "libraries/AP_HAL_SITL/", "Tools/"))
+            or "_SITL." in name or name.startswith("SIM_"))
+
+
+def caution(files: list[str], vehicle: str, ambiguous=()) -> str | None:
+    """Why a culprit is unlikely to be a firmware change of `vehicle`, or None.
+    "sim": it changes only the simulator or tools (any flight change is in the simulation);
+    "other_vehicle": it changes only another vehicle's code (and maybe the simulator).
+    The backfill's false alarms were such commits: noise sent the bisect to them. Not given
+    when unbuildable commits share the blame, since their files are not known to be safe."""
+    own = VEHICLE_DIRS.get(vehicle)
+    if ambiguous or not files or not own:
+        return None
+    others = tuple(f"{d}/" for v, d in VEHICLE_DIRS.items() if d != own)
+    rest = [f for f in files if not _sim_only(f)]
+    if not rest:
+        return "sim"
+    if all(f.startswith(others) for f in rest):
+        return "other_vehicle"
+    return None
+
+
 def write_evidence(rec: Record, repo: Path, report, tri, timelines, result) -> Path:
     """The evidence pack: everything the explainer is allowed to see, as one document."""
     out = [t("ev.title"), ""]
@@ -257,13 +285,108 @@ def write_evidence(rec: Record, repo: Path, report, tri, timelines, result) -> P
             t("ev.found", range=result["range"], tests=result["tests"], sha=c[:10], subject=result["subject"])]
     if result["ambiguous_with"]:
         out.append(t("ev.ambiguous", shas=", ".join(x[:10] for x in result["ambiguous_with"])))
-    diff = git(repo, "show", "--format=commit %H%nAuthor: %an%nDate: %ad%n%n    %s%n%n%b", c).splitlines()
+    if result.get("caution"):
+        out.append(t("ev.caution." + result["caution"]))
+    diff =git(repo, "show", "--format=commit %H%nAuthor: %an%nDate: %ad%n%n    %s%n%n%b", c).splitlines()
     if len(diff) > MAX_DIFF_LINES:
         diff = diff[:MAX_DIFF_LINES] + [t("ev.cut", n=len(diff) - MAX_DIFF_LINES)]
     out += ["", "```diff", *diff, "```", ""]
+    out += _impact_section(rec, repo, result["culprit"])
+    out += _targeted_section(rec)
+    out += _coverage_section(rec)
     path = rec.dir / "evidence.md"
     path.write_text("\n".join(out))
     return path
+
+
+def _impact_section(rec, repo: Path, culprit: str) -> list[str]:
+    """Static impact of the culprit commit as an evidence section; a failure here is logged and
+    never costs the investigation (nor does an unsupported vehicle: PX4 has no impact analysis)."""
+    from . import impact
+    vehicle = getattr(rec, "data", {}).get("vehicle", "copter")
+    if vehicle not in impact.VEHICLE_DIRS:
+        return []
+    try:
+        return impact.markdown(impact.impact(repo, f"{culprit}^", culprit, vehicle))
+    except Exception as e:       # noqa: BLE001  (best effort by design)
+        if hasattr(rec, "log"):
+            rec.log(t("log.impact.skipped", err=e))
+        return []
+
+
+def _targeted_section(rec) -> list[str]:
+    """What --targeted added to the flown set, and why."""
+    from . import targeted
+    p = getattr(rec, "data", {}).get("targeted")
+    return targeted.markdown(p) if p else []
+
+
+def _coverage(rec: Record, repo: Path, good: str, bad: str, vehicle: str, dirs, only, jobs: int):
+    """Measure coverage of good..bad into coverage.json and the record. A failure is logged and
+    never costs the investigation."""
+    from . import coverage
+    rec.log(t("log.coverage.start", good=good[:10], bad=bad[:10]))
+    try:
+        res = coverage.measure(repo, good, bad, vehicle, only, jobs=jobs, log=rec.log, dirs=dirs)
+    except Exception as e:      # noqa: BLE001  (a build or gcov problem: report, go on)
+        rec.log(t("log.coverage.failed", e=str(e)[-500:]))
+        rec.set(coverage={"error": str(e)[-500:]})
+        return
+    (rec.dir / "coverage.json").write_text(json.dumps(res, indent=1))
+    b = coverage.brief(res)
+    rec.set(coverage=b)
+    rec.step("coverage", **b)
+    rec.log(t("log.coverage", run=b["run"], code=b["code"]))
+
+
+def _coverage_section(rec) -> list[str]:
+    """Which changed lines of the culprit the scenarios ran: lines no flight ran are untested."""
+    from . import coverage
+    p = rec.dir / "coverage.json"
+    if not p.exists():
+        return []
+    res = json.loads(p.read_text())
+    out = [t("ev.coverage"), "", t("ev.coverage.total", run=res["run_lines"], code=res["code_lines"])]
+    for f, x in res["files"].items():
+        if x["built"] and x["run"]:
+            out.append(f"- {f}: " + t("ev.coverage.ran", run=x["run"], code=x["code"],
+                                       by=", ".join(sorted(x["by_scenario"]))))
+    for f, lines in coverage.top_not_run(res):
+        out.append(f"- {f}: " + t("ev.coverage.not_run", lines=coverage.ranges(lines)))
+    if res["not_built"]:
+        out.append(t("ev.coverage.not_built", files=", ".join(res["not_built"][:20])))
+    return out + [""]
+
+
+def _ran(repo: Path, good: str, bad: str, vehicle: str, dirs, only, jobs: int) -> dict | None:
+    """{scenario: changed lines of good..bad it executed that not every scenario executed} for
+    --targeted --coverage; None if the coverage build fails (targeting falls back to the modes)."""
+    from . import coverage
+    try:
+        res = coverage.measure(repo, good, bad, vehicle, only, jobs=jobs, dirs=dirs)
+    except Exception as e:      # noqa: BLE001
+        print(t("log.coverage.failed", e=str(e)[-500:]))
+        return None
+    ran: dict[str, int] = {}
+    for x in res["files"].values():
+        for name, n in (x.get("by_scenario_distinct") or {}).items():
+            ran[name] = ran.get(name, 0) + n
+    return ran
+
+
+def _targeted(repo: Path, good: str, bad: str, vehicle: str, scenario_dirs: list[Path], only,
+              ran: dict | None = None):
+    """(plan, scenario_dirs, only) with the targeted scenarios added, before anything is built."""
+    from . import impact, targeted
+    try:
+        p, d = targeted.prepare(repo, good, bad, vehicle, scenario_dirs, **({"ran": ran} if ran else {}))
+    except impact.ImpactError as e:
+        raise scenario.ScenarioSetError(t("err.targeted.impact", e=e)) from e
+    if d is None:
+        return targeted.summary(p), scenario_dirs, only
+    names = [i["name"] for i in p["add"]]
+    return {**targeted.summary(p), "dir": str(d)}, scenario_dirs + [d.resolve()], \
+        (list(only) + names if only else only)
 
 
 def _explain(rec: Record, kind: str, model: str | None, lang: str):
@@ -323,16 +446,31 @@ def baseline(rec: Record, suite, binary: Path, sha: str, only, jobs: int) -> Pat
 
 def investigate(repo: Path, good: str, bad: str, only=None, jobs: int = JOBS,
                 reported=(), suite: str = "scenarios", explain=None, scenario_dirs=None,
-                vehicle: str = "copter") -> Record:
+                vehicle: str = "copter", targeted: bool = False, coverage: bool = False) -> Record:
     """`reported`: scenarios CI saw fail on `bad`. An intermittent failure may not show in the
     first three runs, so those scenarios are soaked before the regression is called absent.
     `scenario_dirs`: directories with the scenarios to fly (default: the shipped ones); they are
-    validated first and recorded, so that `fix` flies the same set."""
+    validated first and recorded, so that `fix` flies the same set.
+    `targeted`: also fly the scenarios forkpilot.targeted picks from the impact of good..bad
+    (written to $FP_HOME/targeted/<hash>/ and added as one more scenario directory).
+    `coverage`: also measure which changed lines the scenarios run (forkpilot.coverage): of the
+    culprit when one is found, else of the whole range."""
     repo = repo.resolve()
+    if coverage and (suite != "scenarios" or vehicle not in ("copter", "plane")):
+        raise scenario.ScenarioSetError(t("err.coverage"))
+    if targeted and suite != "scenarios":
+        raise scenario.ScenarioSetError(t("err.targeted.suite"))
+    if targeted and vehicle not in ("copter", "plane"):
+        raise scenario.ScenarioSetError(t("err.targeted.vehicle"))
+    plan = None
     if suite == "scenarios":
         # the directories this run flies, resolved now (the default can include $FP_HOME/scenarios)
         # so the record can name them; a bad scenario fails here, not after a build
         scenario_dirs = [d.resolve() for d in scenario.as_dirs(scenario_dirs)]
+        if targeted:
+            # with --coverage the parameter variants go on the scenarios that run the changed code
+            ran = _ran(repo, good, bad, vehicle, scenario_dirs, only, jobs) if coverage else None
+            plan, scenario_dirs, only = _targeted(repo, good, bad, vehicle, scenario_dirs, only, ran)
         scenario.check(scenario_dirs, only)
     elif scenario_dirs:
         raise scenario.ScenarioSetError("--scenarios applies to the scenarios suite, not to autotest")
@@ -349,7 +487,11 @@ def investigate(repo: Path, good: str, bad: str, only=None, jobs: int = JOBS,
     # recorded unless it is just the shipped set: `fix` flies the same directories
     meta = {"scenario_dirs": [str(d) for d in scenario_dirs]} if scenario_dirs and \
         scenario_dirs != [SCENARIOS.resolve()] else {}
+    if plan is not None:
+        meta["targeted"] = plan
     rec = Record(repo=str(repo), good=good, bad=bad, suite=suite, vehicle=vehicle, **meta)
+    if plan is not None:
+        rec.log(t("log.targeted", n=len(plan["add"]), dir=plan.get("dir", "-")))
     suite = SUITES[suite](repo, good, scenario_dirs, vehicle=vehicle)
     try:
         good_bin, info = build(repo, good, log=rec.log, vehicle=vehicle)
@@ -381,6 +523,8 @@ def investigate(repo: Path, good: str, bad: str, only=None, jobs: int = JOBS,
         rec.log(t("log.detect", worst=worst) + " " + ", ".join(f"{k}={v}" for k, (v, _) in report.items()))
         if worst == "PASS":
             rec.set(outcome="no_regression")
+            if coverage:
+                _coverage(rec, repo, good, bad, vehicle, suite.dirs, only, jobs)
             return rec
 
         targets = [k for k, (v, _) in report.items() if v != "PASS"]
@@ -398,6 +542,8 @@ def investigate(repo: Path, good: str, bad: str, only=None, jobs: int = JOBS,
             real = [k for k, t in tri.items() if t["class"] == "intermittent"]
             if not real:
                 rec.set(outcome="not_reproducible", triage=tri)
+                if coverage:
+                    _coverage(rec, repo, good, bad, vehicle, suite.dirs, only, jobs)
                 return rec
             # enough runs per bisect step that missing the symptom on a bad commit is unlikely;
             # the rate estimate is refined during the bisect
@@ -418,10 +564,14 @@ def investigate(repo: Path, good: str, bad: str, only=None, jobs: int = JOBS,
 
         result = bisect(rec, suite, repo, good, bad, real, base_dir, jobs, wanted=wanted, n=n,
                         per_run=per_run, seen_rate=seen_rate)
+        result["caution"] = caution(result["files"], vehicle, result["ambiguous_with"])
         rec.step("bisect", **result)
         rec.set(outcome="localized", intermittent=per_run,
                 symptom={k: report[k][0] for k in real}, culprit=result,
                 wanted=sorted(wanted), targets=real)
+        if coverage:
+            c = result["culprit"]
+            _coverage(rec, repo, git(repo, "rev-parse", f"{c}^"), c, vehicle, suite.dirs, only, jobs)
         write_evidence(rec, repo, report, tri, timelines, result)
         if explain:
             _explain(rec, *explain)

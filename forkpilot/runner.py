@@ -56,6 +56,56 @@ class Run:
         path.write_text(json.dumps(self.__dict__))
 
 
+MISSION_CMDS = {"wp": M.MAV_CMD_NAV_WAYPOINT, "spline": M.MAV_CMD_NAV_SPLINE_WAYPOINT,
+                "loiter_turns": M.MAV_CMD_NAV_LOITER_TURNS, "loiter_time": M.MAV_CMD_NAV_LOITER_TIME,
+                "delay": M.MAV_CMD_NAV_DELAY, "land": M.MAV_CMD_NAV_LAND,
+                "rtl": M.MAV_CMD_NAV_RETURN_TO_LAUNCH, "speed": M.MAV_CMD_DO_CHANGE_SPEED,
+                "yaw": M.MAV_CMD_CONDITION_YAW}
+LOCATED = {"wp", "spline", "loiter_turns", "loiter_time", "land"}
+
+
+def copter_mission_items(spec: list) -> list[tuple]:
+    """MAVLink items, home first. A bare [n, e, up] is a waypoint; a list of only those gets an
+    RTL at the end. Otherwise one `kind: argument` per item (scenario.COPTER_MISSION_ITEMS)."""
+    lat0, lon0 = (float(v) for v in HOME.split(",")[:2])
+
+    def item(seq, cmd, n=0.0, e=0.0, up=0.0, p=(0, 0, 0, 0), located=True):
+        lat = lat0 + n / 111319.5
+        lon = lon0 + e / (111319.5 * math.cos(math.radians(lat0)))
+        # no location (0, 0) on delay/speed/yaw: a spline bends towards the next item's location
+        return (seq, M.MAV_FRAME_GLOBAL_RELATIVE_ALT_INT, cmd, 0, 1, *p,
+                int(lat * 1e7) if located else 0, int(lon * 1e7) if located else 0, up)
+    plain = all(isinstance(x, (list, tuple)) for x in spec)
+    items = [item(0, M.MAV_CMD_NAV_WAYPOINT)]
+    for seq, entry in enumerate(spec, 1):
+        if isinstance(entry, (list, tuple)):
+            entry = {"wp": entry}
+        (kind, arg), = entry.items()
+        if kind not in MISSION_CMDS:
+            raise ScenarioError(f"unknown mission item {kind!r}")
+        cmd, n, e, up, p = MISSION_CMDS[kind], 0.0, 0.0, 0.0, (0, 0, 0, 0)
+        if kind in ("wp", "spline"):
+            n, e, up = map(float, arg)
+        elif kind == "loiter_turns":
+            n, e, up = map(float, arg["at"])
+            p = (float(arg.get("turns", 1)), 0, float(arg.get("radius", 0)), 0)
+        elif kind == "loiter_time":
+            n, e, up = map(float, arg["at"])
+            p = (float(arg["seconds"]), 0, 0, 0)
+        elif kind == "delay":
+            p = (float(arg), -1, -1, -1)                  # seconds; not a time of day
+        elif kind == "land":
+            n, e = map(float, arg[:2])
+        elif kind == "speed":
+            p = (1, float(arg), -1, 0)                    # ground speed, m/s, throttle unchanged
+        elif kind == "yaw":
+            p = (float(arg), 0, 0, 0)                     # absolute heading, default rate, shortest
+        items.append(item(seq, cmd, n, e, up, p, located=kind in LOCATED))
+    if plain:
+        items.append(item(len(items), M.MAV_CMD_NAV_RETURN_TO_LAUNCH))
+    return items
+
+
 class Runner:
     def __init__(self, sitl: Sitl, run: Run):
         self.s, self.run = sitl, run
@@ -232,17 +282,10 @@ class Runner:
         self.wait(lambda: self.mode == mode, 10, mode)
         self.event("mode", mode)
 
-    def step_mission(self, waypoints):
-        """Upload home + NAV_WAYPOINTs + RTL using the MAVLink mission protocol."""
-        lat0, lon0 = (float(v) for v in HOME.split(",")[:2])
-        def item(seq, cmd, n=0.0, e=0.0, up=0.0):
-            lat = lat0 + n / 111319.5
-            lon = lon0 + e / (111319.5 * math.cos(math.radians(lat0)))
-            return (seq, M.MAV_FRAME_GLOBAL_RELATIVE_ALT_INT, cmd, 0, 1, 0, 0, 0, 0,
-                    int(lat * 1e7), int(lon * 1e7), up)
-        items = [item(0, M.MAV_CMD_NAV_WAYPOINT)]
-        items += [item(i + 1, M.MAV_CMD_NAV_WAYPOINT, *wp) for i, wp in enumerate(waypoints)]
-        items.append(item(len(items), M.MAV_CMD_NAV_RETURN_TO_LAUNCH))
+    def step_mission(self, spec):
+        """Upload home + the items using the MAVLink mission protocol. A list of only
+        [north, east, up] waypoints gets a final RTL."""
+        items = copter_mission_items(spec)
         mav = self.s.mav
         mav.mav.mission_count_send(mav.target_system, mav.target_component, len(items),
                                    M.MAV_MISSION_TYPE_MISSION)
@@ -269,7 +312,7 @@ class Runner:
             mav.mav.mission_item_int_send(mav.target_system, mav.target_component, seq, frame,
                                           cmd, cur, auto, p1, p2, p3, p4, x, y, z,
                                           M.MAV_MISSION_TYPE_MISSION)
-        self.event("mission", len(waypoints))
+        self.event("mission", len(spec))
 
     STICKS = {"roll": 1, "pitch": 2, "throttle": 3, "yaw": 4}
 
@@ -298,7 +341,8 @@ def run_scenario(path: Path, ardupilot: Path | None = None, speedup: int = 10,
     run = Run(scenario=spec["name"])
     params = {**(extra_params or {}), **spec.get("params", {})}
     kw = {"ardupilot": ardupilot} if ardupilot else {}
-    with Sitl(speedup=speedup, instance=instance, params=params, binary_path=binary, **kw) as sitl:
+    with Sitl(speedup=speedup, instance=instance, params=params, binary_path=binary,
+              boot_params=spec.get("boot_params") or {}, **kw) as sitl:
         r = Runner(sitl, run)
         try:
             r.ready()

@@ -32,8 +32,9 @@ pip install -e .                 # add '.[autotest]' to also fly ArduPilot's own
 ```
 
 This puts a `forkpilot` command on your path (inside the venv). It installs `pymavlink`, `PyYAML`
-and the two Python modules the ArduPilot build needs: `empy==3.3.4` (exactly this version, empy 4
-breaks ArduPilot's waf) and `pexpect`. ForkPilot's own build runs with the Python of the venv you
+and the Python modules the ArduPilot build needs: `empy==3.3.4` (exactly this version, empy 4
+breaks ArduPilot's waf), `pexpect`, and `setuptools<81` (older ArduPilot, such as 2025-08 master, imports
+`pkg_resources`, which setuptools 81 removed). ForkPilot's own build runs with the Python of the venv you
 installed it in, so keep that venv activated, or call `.venv/bin/forkpilot` directly.
 
 No internet on the machine? On a connected one run `pip download -d wheels '.[autotest]'`, copy
@@ -47,8 +48,13 @@ back when it finishes. It refuses to start over uncommitted changes and locks th
 runs. So do not point it at the clone you work in:
 
 ```bash
-git clone --recurse-submodules <your fork url> ~/fp/fork       # or: --reference ~/your/clone
+git clone --recurse-submodules --jobs 8 <your fork url> ~/fp/fork   # or: --reference ~/your/clone
 ```
+
+A full ArduPilot clone with its submodules is about 2 GB. From GitHub this can take 30-60 minutes
+even on a fast line (measured: about 40 minutes over a 500 Mbit/s connection); `--jobs 8` fetches the
+submodules in parallel. If you already have a full clone, `--reference` it and almost nothing is
+downloaded again. Do not use a shallow clone (`--depth`): ForkPilot needs the commits between good and bad.
 
 Every commit in the range may pin different submodule versions (MAVLink above all), and ForkPilot
 runs `git submodule update --init --recursive` for each build. On a machine without access to the
@@ -175,6 +181,51 @@ forkpilot fix $FP_HOME/investigations/<stamp> --pick <upstream fix sha>
 
 A candidate that makes the oracle happy is a candidate, not a fix: read the diff and fly it.
 
+### Impact of a commit range, before you fly anything
+
+```bash
+python -m forkpilot.cli impact --repo ~/forkpilot-work/ardupilot --good <sha> --bad <sha>
+```
+
+This takes seconds and needs no build. It reads the diff and the ArduPilot sources from the
+repository's objects only, and tells you which modes and parameters the change can reach (for
+example an `AC_Loiter` change reaches LOITER, POSHOLD and ZIGZAG, and a new `LOIT_OPTIONS` bit
+parameter), then which of them the shipped scenarios fly, and which they never fly or only fly at
+the default value. Use it to decide what else to flight-test. It is a heuristic over names and file
+layout: a mode or parameter it does not list is not proven unaffected, and "all modes" means core
+code changed. Add `--vehicle plane` for Plane and QuadPlane, `--json` for machine-readable output.
+
+`--plan` also prints the extra scenarios `investigate --targeted` would fly for this range, and why:
+
+```bash
+python -m forkpilot.cli impact --repo ~/forkpilot-work/ardupilot --good 275c54a24b^ --bad 275c54a24b --plan
+...
+Targeted flights added (1, at most 12):
+  copter_sticks__ZIGZAG: ZIGZAG uses the changed code and no scenario flies it: generic stick template
+  Parameters not varied: LOIT_OPTIONS (new: the good commit cannot set it, so no baseline)
+```
+
+`investigate --targeted` (off by default) flies the full set plus these. Rule-based, no LLM:
+
+- **Parameter variants.** An affected parameter with documented bits gets one variant per bit,
+  that bit flipped from the default; one with `@Values` gets one per value other than the default.
+  The variant is a copy of a scenario that flies the modes using the changed code (else `hover`,
+  or `plane_modes` for Plane) with the parameter in `params:`, named
+  `<scenario>__<PARAM>_<value>`, e.g. `auto_mission__MIS_OPTIONS_4`. Numeric `@Range` parameters,
+  and parameters the range adds (the good commit refuses to set them), are listed as not varied.
+- **Stick templates.** An affected mode no scenario flies gets a generic template when a pilot can
+  fly it in SITL with no extra hardware: Copter ACRO, DRIFT, SPORT, STABILIZE, ZIGZAG (take off,
+  enter the mode, pitch, roll, pitch with yaw, each held and released, land); Plane ACRO, CRUISE,
+  FBWB, STABILIZE, TRAINING (AUTO takeoff, enter the mode, full roll stick past the roll limit,
+  release, pitch, release, RTL). Others (AUTO sub-modes, FLOWHOLD, THROW, ...) are listed as not
+  flown.
+
+At most 12 are added: templates of directly affected modes first, then vehicle parameters, library
+parameters, and templates of modes reached only through core code. The files go
+to `$FP_HOME/targeted/<hash>/`, are linted before anything is built, get their own baseline (the
+cache key includes their contents), and are listed in the record and in `evidence.md`; `fix` flies
+the same set. Not with `--suite autotest`, not for PX4.
+
 ## 6. Add your own scenarios
 
 The shipped scenarios (hover, circle, missions, GPS loss, RC loss, battery failsafe, wind, pilot
@@ -213,6 +264,32 @@ once; it is then cached.
 `--suite autotest` flies ArduPilot's own Copter tests (about 400) from the same `good`/`bad`.
 It needs the `autotest` extra. Use it as a second, wider screen; it confirms each drift on fresh
 reruns before it reports it.
+
+## Nightly
+
+`forkpilot nightly` checks the commits that landed on an upstream branch since the last night,
+the way a fork team would after a merge. Use a clone that only ForkPilot touches: it is fetched,
+checked out and built in.
+
+```bash
+forkpilot nightly --repo ~/fp/upstream --branch master --vehicle copter plane
+```
+
+The first run checks the last 20 commits (`--first-range`); later runs check from the last
+commit that finished. A range over `--max-commits` (default 60) is still investigated, and the
+count is recorded. `--dry-run` fetches and prints the ranges without building or flying.
+
+Records go to `$FP_HOME/nightly/`: `state.json` (last checked commit per branch, vehicle and
+suite), `log.jsonl` (one line per vehicle and night) and `<date>/<vehicle>.json` with a
+`summary.md`. A vehicle's state advances only if its investigation ended with an outcome; after
+an `error` the same range is tried again the next night. Nothing is sent anywhere: the only
+network use is the `git fetch`.
+
+As a suggestion only (ForkPilot installs nothing), a crontab line:
+
+```
+30 1 * * *  FP_HOME=$HOME/fp forkpilot nightly --repo $HOME/fp/upstream --vehicle copter plane >> $HOME/fp/nightly.out 2>&1
+```
 
 ## On-premises and LLM notes
 

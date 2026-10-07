@@ -1,0 +1,36 @@
+diff --git a/libraries/AP_Mission/AP_Mission.cpp b/libraries/AP_Mission/AP_Mission.cpp
+index 2e5fb77d99..ea441be219 100644
+--- a/libraries/AP_Mission/AP_Mission.cpp
++++ b/libraries/AP_Mission/AP_Mission.cpp
+@@ -98 +98 @@ void AP_Mission::init()
+-    if (AP_MISSION_MASK_MISSION_CLEAR & _options) {
++    if (option_is_set(Option::CLEAR_ON_BOOT)) {
+@@ -2505 +2505 @@ bool AP_Mission::is_best_land_sequence(const Location &current_loc)
+-    if (!(_options & AP_MISSION_MASK_DIST_TO_LAND_CALC)) {
++    if (!option_is_set(Option::FAILSAFE_TO_BEST_LANDING)) {
+diff --git a/libraries/AP_Mission/AP_Mission.h b/libraries/AP_Mission/AP_Mission.h
+index 69f8fe2b46..32bb2fa77d 100644
+--- a/libraries/AP_Mission/AP_Mission.h
++++ b/libraries/AP_Mission/AP_Mission.h
+@@ -48,3 +47,0 @@
+-#define AP_MISSION_MASK_MISSION_CLEAR       (1<<0)  // If set then Clear the mission on boot
+-#define AP_MISSION_MASK_DIST_TO_LAND_CALC   (1<<1)  // Allow distance to best landing calculation to be run on failsafe
+-#define AP_MISSION_MASK_CONTINUE_AFTER_LAND (1<<2)  // Allow mission to continue after land
+@@ -735,2 +732,2 @@ public:
+-      return true if MIS_OPTIONS is set to allow continue of mission
+-      logic after a land and the next waypoint is a takeoff. If this
++      Option::FailsafeToBestLanding -  continue mission
++      logic after a land if the next waypoint is a takeoff. If this
+@@ -739,0 +737,9 @@ public:
++    enum class Option {
++        CLEAR_ON_BOOT            =  0,  // clear mission on vehicle boot
++        FAILSAFE_TO_BEST_LANDING =  1,  // on failsafe, find fastest path along mission home
++        CONTINUE_AFTER_LAND      =  2,  // continue running mission (do not disarm) after land if takeoff is next waypoint
++    };
++    bool option_is_set(Option option) const {
++        return (_options.get() & (uint16_t)option) != 0;
++    }
++
+@@ -742 +748 @@ public:
+-        return (_options.get() & AP_MISSION_MASK_CONTINUE_AFTER_LAND) != 0;
++        return option_is_set(Option::CONTINUE_AFTER_LAND);

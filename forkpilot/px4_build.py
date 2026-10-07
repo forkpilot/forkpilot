@@ -100,6 +100,7 @@ def build(repo: Path, ref: str, log=print) -> tuple[Path | None, dict]:
         info["error"] = (proc.stdout + proc.stderr)[-3000:]
         if log:
             log(i18n.t("log.build.failed", sha=sha[:10] + " (px4)", s=info["seconds"]))
+            log(i18n.t("log.build.see", path=cache_dir(sha) / "build-px4.log"))
         return None, info
     save(bdir, cache_dir(sha))
     if log:

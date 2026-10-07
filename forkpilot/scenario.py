@@ -27,6 +27,7 @@ from .runner import Runner
 TOP_KEYS = {"name": "required: same as the file name without .yaml",
             "description": "optional free text, ignored by the tools",
             "params": "optional: SITL parameters set before arming",
+            "boot_params": "optional: parameters read at boot (sensor drivers such as FLOW_TYPE, RNGFND1_TYPE)",
             "steps": "required: the flight, in order",
             "expect": "optional: absolute rules on metrics",
             "vehicle": "optional: copter (default) or plane",
@@ -182,12 +183,69 @@ def _point(ctx, v, line, what="target"):
     return ok
 
 
+COPTER_MISSION_ITEMS = {"wp": "[north, east, up]", "spline": "[north, east, up] (spline waypoint)",
+                        "loiter_turns": "{at: [north, east, up], turns, radius}",
+                        "loiter_time": "{at: [north, east, up], seconds}", "delay": "seconds (NAV_DELAY)",
+                        "speed": "ground speed in m/s", "yaw": "heading in degrees (CONDITION_YAW)",
+                        "land": "[north, east]", "rtl": "true"}
+
+
+def _keys(ctx, arg, ln, what, required, optional, example):
+    if not isinstance(arg, dict) or not set(required) <= set(arg):
+        ctx.err(ln, f"{what} must be a mapping like {example}, got {_show(arg)}")
+        return False
+    for k in arg:
+        if k not in required + optional:
+            ctx.err(arg.key_line[k], _unknown(f"{what} key", k, required + optional))
+    return True
+
+
+def _copter_item(ctx, item, line, i):
+    if isinstance(item, list):
+        _point(ctx, item, line, f"waypoint {i}")
+        return
+    if not isinstance(item, dict) or len(item) != 1:
+        ctx.err(line, f"mission item {i} must be [north, east, up] or one `kind: argument`, got {_show(item)}")
+        return
+    (kind, arg), = item.items()
+    ln, what = item.val_line[kind], f"mission item {i} ({kind})"
+    if kind not in COPTER_MISSION_ITEMS:
+        ctx.err(item.key_line[kind], _unknown("mission item", kind, COPTER_MISSION_ITEMS))
+    elif kind in ("wp", "spline"):
+        _point(ctx, arg, ln, what)
+    elif kind == "loiter_turns":
+        if _keys(ctx, arg, ln, what, ("at",), ("turns", "radius"), "{at: [40, 0, 20], turns: 2, radius: 15}"):
+            _point(ctx, arg["at"], arg.val_line["at"], f"{what} at")
+            if "turns" in arg:
+                _num(ctx, arg["turns"], arg.val_line["turns"], f"{what} turns", 0, None, True)
+            if "radius" in arg:
+                _num(ctx, arg["radius"], arg.val_line["radius"], f"{what} radius", 0)
+    elif kind == "loiter_time":
+        if _keys(ctx, arg, ln, what, ("at", "seconds"), (), "{at: [40, 0, 20], seconds: 5}"):
+            _point(ctx, arg["at"], arg.val_line["at"], f"{what} at")
+            _num(ctx, arg["seconds"], arg.val_line["seconds"], f"{what} seconds", 0)
+    elif kind == "delay":
+        _num(ctx, arg, ln, f"{what} seconds", 0)
+    elif kind == "speed":
+        _num(ctx, arg, ln, f"{what} ground speed", 0, None, True)
+    elif kind == "yaw":
+        _num(ctx, arg, ln, f"{what} heading", 0, 360)
+    elif kind == "land":
+        if not isinstance(arg, list) or len(arg) not in (2, 3):
+            ctx.err(ln, f"{what} must be [north, east] in metres, got {_show(arg)}")
+        else:
+            for x, axis in zip(arg, ("north", "east")):
+                _num(ctx, x, ln, f"{what} {axis}")
+    elif arg is not True:
+        ctx.err(ln, f"{what} takes `true`, got {_show(arg)}")
+
+
 def _mission(ctx, v, line):
     if not isinstance(v, list) or not v:
-        ctx.err(line, f"mission must be a non-empty list of [north, east, up] waypoints, got {_show(v)}")
+        ctx.err(line, f"mission must be a non-empty list of mission items, got {_show(v)}")
         return
-    for i, (wp, ln) in enumerate(zip(v, v.item_line if hasattr(v, "item_line") else [line] * len(v)), 1):
-        _point(ctx, wp, ln, f"waypoint {i}")
+    for i, (item, ln) in enumerate(zip(v, getattr(v, "item_line", [line] * len(v))), 1):
+        _copter_item(ctx, item, ln, i)
 
 
 def _velocity(ctx, v, line):
@@ -307,8 +365,10 @@ STEPS = {
                       "failsafe_reaction_s measures.", _set_param),
     "mode": Step("mode name, upper case", "mode: LOITER",
                  "Switch flight mode and wait for the vehicle to report it.", _mode),
-    "mission": Step("list of [north, east, up]", "mission: [[40, 0, 20], [40, 40, 20]]",
-                    "Upload home, these waypoints and a final RTL. Start it with `mode: AUTO`.", _mission),
+    "mission": Step("list of mission items", "mission: [[40, 0, 20], [40, 40, 20]]",
+                    "Upload home and these items: [north, east, up] or one of "
+                    + ", ".join(f"`{k}` ({v})" for k, v in COPTER_MISSION_ITEMS.items())
+                    + ". A list of only waypoints gets a final RTL. Start it with `mode: AUTO`.", _mission),
     "sticks": Step("{roll, pitch, throttle, yaw: PWM 1000-2000}", "sticks: {pitch: 1300, throttle: 1500}",
                    "Pilot RC override, held (and re-sent) until changed; channels not named are left alone.",
                    _sticks),
@@ -600,14 +660,14 @@ def _lint(ctx, path):
         ctx.err(spec.val_line["name"], f"name '{spec['name']}' must equal the file name '{path.stem}' "
                 "(results and rules are keyed by it)")
     _vehicle(ctx, spec)
-    if "params" in spec:
-        p = spec["params"]
+    for key in ("params", "boot_params"):
+        p = spec.get(key)
         if p is None:
             pass
         elif not isinstance(p, dict):
-            ctx.err(spec.val_line["params"], f"params must be a mapping NAME: number, got {_show(p)}")
+            ctx.err(spec.val_line[key], f"{key} must be a mapping NAME: number, got {_show(p)}")
         else:
-            _params(ctx, p, spec.val_line["params"], "params")
+            _params(ctx, p, spec.val_line[key], key)
     steps = _steps(ctx, spec)
     rules = _rules(ctx, spec)
     if steps is not None and rules:

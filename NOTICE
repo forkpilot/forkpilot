@@ -21,3 +21,6 @@ Exceptions in this repository:
 - bench/make_fork.py contains short ArduPilot source lines that it uses as
   anchors to edit a local ArduPilot checkout.
 - tests/data/auto_mission_small.bin is a DataFlash log recorded from ArduPilot SITL.
+- tests/data/impact/ holds excerpts of ArduPilot source files and diffs of
+  ArduPilot commits, used as test fixtures. They are derived from ArduPilot and
+  are licensed under GPL-3.0, not Apache-2.0.

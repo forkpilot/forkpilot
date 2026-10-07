@@ -13,6 +13,32 @@ Simulation results do not replace flight tests. They narrow down what to test.
 Example: [docs/example/report.html](docs/example/report.html), the report of a hidden regression in a
 synthetic fork (download it and open it in a browser).
 
+## What it has found
+
+- A unit slip in the brake-entry threshold of Copter PosHold, left over from a units conversion.
+  Found while studying a benchmark regression; fixed upstream in
+  [ArduPilot/ardupilot#34624](https://github.com/ArduPilot/ardupilot/pull/34624).
+- In AUTO, a spline waypoint followed by NAV_DELAY flies the copter into the ground. Found on the
+  first flight of a new scenario: [ArduPilot/ardupilot#34651](https://github.com/ArduPilot/ardupilot/issues/34651) (open).
+- On real ArduPilot regressions, with the culprit commit known only to the benchmark, the shipped
+  scenarios and ArduPilot's autotest together detect 4 of 12 dev cases (3 of them with scenarios
+  written after the case was studied) and 3 of 5 blind holdout cases ([Benchmarks](#benchmarks)). The misses are mostly behaviours no scenario flies; `coverage`
+  shows which changed lines a run never reached.
+
+## Quick look
+
+```bash
+pip install -e .                                   # in a clone of this repository
+forkpilot doctor --repo ~/fp/fork --build          # checks the machine, builds, flies one hover
+forkpilot investigate --repo ~/fp/fork --good <sha> --bad <sha> --report
+```
+
+The last command builds both commits, flies the scenarios, bisects to the commit that changed the
+behaviour and writes `report.html`. On a fresh install, on the PosHold regression above (two
+adjacent commits, `--only hover pilot_sticks`), it took 100 seconds with both builds, after
+`doctor --build` had filled the compiler cache (that first build: about 3 minutes on 8 jobs).
+Step by step: [docs/quickstart.md](docs/quickstart.md).
+
 ## Pipeline
 
 | Stage | What it does | AI |
@@ -28,7 +54,8 @@ Oracle (`forkpilot/oracle.py`):
 
 - **FAIL**: a rule in the scenario's `expect:` block is broken, or the scenario did not complete.
 - **DRIFT**: no rule broken, but a metric's mean left the baseline band
-  `mean ± max(3·sd, 10%·|mean|, 0.05)`.
+  `mean ± max(3·sd, 10%·|mean|, tol)`. `tol` is 0.05, or more for a metric that moves between
+  builds without a behaviour change (`forkpilot/noise.json`, from `forkpilot calibrate`).
 - **PASS**: otherwise.
 
 Suites whose first pass is only a screen (ArduPilot's own autotest, ~400 tests) confirm each drift
@@ -69,8 +96,33 @@ python -m forkpilot.cli fix investigations/<stamp> --no-revert --patch my.diff  
 python -m forkpilot.cli fix investigations/<stamp> --backend anthropic --attempts 3
 python -m forkpilot.cli report investigations/<stamp>            # one self-contained report.html
 python -m forkpilot.cli investigate ... --report                 # write it at the end
+python -m forkpilot.cli impact --repo path/to/fork --good <sha> --bad <sha> [--vehicle plane] [--json] [--plan]
+python -m forkpilot.cli investigate ... --targeted                # also fly variants/templates the impact picks
+python -m forkpilot.cli coverage --repo path/to/fork --good <sha> --bad <sha>   # changed lines the flights run
+python -m forkpilot.cli investigate ... --coverage                # the same, of the culprit, in the report
 python -m forkpilot.cli fromlog flight.bin -o scenarios/field_report.yaml   # replay a real flight log
 ```
+
+`impact` is a static, rule-based look at the diff (no build, no flight, no LLM; it only reads the
+repository's objects, so it never touches your working tree). It lists the classes the diff changed,
+the vehicle objects of those classes, the flight modes that use them (or "all modes" when core code
+such as the attitude controller changed), and the parameters touched, with their bitmask and value
+docs. Then it compares that with what the shipped scenarios fly: affected modes no scenario flies,
+and affected parameters every scenario leaves at its default. `investigate` adds the same section
+for the culprit to `evidence.md`. It narrows what to flight-test; it does not prove that a mode or
+parameter it leaves out is safe. `investigate --targeted` turns it into extra flights: parameter
+variants and stick templates for affected modes no scenario flies (`impact --plan` lists them; see
+[quickstart](docs/quickstart.md)).
+
+`coverage` measures instead of predicting. It builds the bad commit once more with gcov (in
+`$FP_HOME/builds/cov`), flies each scenario once and splits the changed lines into run (and by which
+scenarios), not run, and not built for this vehicle. A coverage flight is as fast as a normal one;
+the build takes about 2 min. "No regression" only speaks for the lines that ran: on 40 weeks of
+ArduPilot master (2025-10 to 2026-10) the Copter scenarios ran 26% of a week's changed code in the
+median week (3-55%; 24% of all changed lines). The rest includes code no scenario reaches yet,
+such as gimbal mounts and CAN and serial peripherals (CRSF, MSP). `investigate --coverage` adds
+this for the culprit (or, with no culprit, the range) to `evidence.md`, the report and the nightly
+summary; with `--targeted` it also picks the scenarios parameter variants fly on.
 
 Output is English. `--lang tr` (before the command, or on `investigate`, `explain`, `fix`) or
 `FP_LANG=tr` switches logs, `evidence.md`, `explanation.md`, `fix.md`, `report.html` and the LLM
@@ -78,7 +130,7 @@ prompts to Turkish. Texts live in `forkpilot/i18n.py`, one dict per language.
 
 `report.html` has no script and makes no request (inline CSS and SVG, light and dark): it opens on an
 air-gapped network. Sections: verdict summary, verdict per scenario, good-against-bad telemetry
-and baseline-band plots, bisect trail, culprit diff, explanation, fix candidates. A missing file
+and baseline-band plots, bisect trail, coverage of the changed lines, culprit diff, explanation, fix candidates. A missing file
 drops its section.
 
 LLM backends:
@@ -226,7 +278,7 @@ been localized yet.
 
 | Path | Contents |
 |---|---|
-| `forkpilot/` | runner (SITL + MAVLink steps), vehicles, plane (Plane steps), px4_build, px4_sitl, px4_runner (PX4 SIH), metrics, plane_metrics, px4_metrics, oracle, battery, suites, build, investigate, timeline, explain, fix, fromlog, replaycheck |
+| `forkpilot/` | runner (SITL + MAVLink steps), vehicles, plane (Plane steps), px4_build, px4_sitl, px4_runner (PX4 SIH), metrics, plane_metrics, px4_metrics, oracle, battery, suites, build, investigate, impact, coverage, calibrate, timeline, explain, fix, fromlog, replaycheck |
 | `scenarios/` | YAML scenarios: steps, parameters, `expect:` rules (format: `docs/scenarios.md`) |
 | `bench/` | synthetic fork benchmark (`make_fork.py`, `run_bench.py`, `truth/`), autotest A/A calibration |
 | `bench/real/` | real ArduPilot regressions (`cases.json`, dev and blind holdout), `run_real.py`, `fix_real.py` |
@@ -256,11 +308,12 @@ so it checks the judge as much as the candidates:
 | land_noGPS_alt_cm | fixes | conflicts |
 | guided_fence_units | fixes | conflicts |
 
-The PosHold culprit has a second unit slip that upstream has not fixed (brake entry threshold
+The PosHold culprit had a second unit slip (brake entry threshold
 `radians(2 * rate)` where the old code meant 0.02·rate degrees). Upstream fix alone: the backtrack
 is gone, stop distance and time still drift. That threshold alone: the reverse. Both: the full
 battery is clean. Simulation only; the scenario that shows it was written after this case was
-studied. Reported upstream: [ArduPilot/ardupilot#34617](https://github.com/ArduPilot/ardupilot/issues/34617).
+studied. Reported upstream ([ArduPilot/ardupilot#34617](https://github.com/ArduPilot/ardupilot/issues/34617))
+and fixed in [ArduPilot/ardupilot#34624](https://github.com/ArduPilot/ardupilot/pull/34624).
 
 Detection on the 13 real dev cases (12 regressions, 1 negative), both suites, 2026-10-04:
 
@@ -286,7 +339,8 @@ this also tests detection only. Details: [bench/real/holdout2.md](bench/real/hol
 ## License
 
 Apache License 2.0: see [LICENSE](LICENSE) and [NOTICE](NOTICE). ForkPilot does not contain
-ArduPilot (GPL-3.0) or PX4 (BSD-3-Clause) code; it builds and runs your own checkout of them.
-The patches in `bench/real/patches/` change ArduPilot files and are GPL-3.0.
+ArduPilot (GPL-3.0) or PX4 (BSD-3-Clause) code, except as listed in NOTICE; it builds and runs your own checkout of them.
+The patches in `bench/real/patches/` change ArduPilot files, and the test fixtures in
+`tests/data/impact/` are excerpts of ArduPilot files and commits: both are GPL-3.0.
 
 Contributions: [CONTRIBUTING.md](CONTRIBUTING.md). Security reports: [SECURITY.md](SECURITY.md).

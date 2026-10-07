@@ -21,6 +21,7 @@ MAX_PLOTTED = 2          # scenarios with telemetry plots
 MAX_BAND_ROWS = 16
 MAX_FINDINGS = 20        # per scenario in the verdict table
 MAX_DIFF_LINES = 600
+COVERAGE_ROWS = 30
 MAX_ROWS_PASS = 12       # PASS scenarios listed as rows; more go into one line
 VERDICT_CLASS = {"PASS": "pass", "DRIFT": "drift", "FAIL": "fail"}
 OUTCOMES = ("localized", "no_regression", "not_reproducible", "build_failed")
@@ -280,6 +281,12 @@ def sec_summary(v: Inv) -> str:
         kv("report.k.search", _e(t("report.search", n=c.get("range", "?"), k=c.get("tests", "?"))))
         if c.get("ambiguous_with"):
             kv("report.k.ambiguous", ", ".join(f"<code>{_e(x[:10])}</code>" for x in c["ambiguous_with"]))
+        if c.get("caution"):
+            kv("report.k.caution", _e(t("ev.caution." + c["caution"])))
+    cov = r.get("coverage") or {}
+    if cov.get("code"):
+        kv("report.k.coverage", _e(t("report.coverage.value", run=cov["run"], code=cov["code"],
+                                     pct=f'{100 * cov["run"] / cov["code"]:.0f}%')))
     for key, ref in (("report.k.good", "good"), ("report.k.bad", "bad")):
         if r.get(ref):
             kv(key, f'<code>{_e(r[ref][:10])}</code> {_e(_git(repo, "log", "-1", "--format=%s", r[ref]))}')
@@ -475,6 +482,42 @@ def sec_bisect(v: Inv) -> str:
             f'<div class="scroll"><table><thead><tr>{head}</tr></thead><tbody>{"".join(rows)}</tbody></table></div>{amb}')
 
 
+def sec_coverage(v: Inv) -> str:
+    """Changed lines run / not run per file (coverage.json from `investigate --coverage`)."""
+    from .coverage import ranges
+    try:
+        res = json.loads((v.dir / "coverage.json").read_text())
+    except (OSError, ValueError):
+        return ""
+    files = res.get("files") or {}
+    built = sorted((f for f, x in files.items() if x.get("built") and x.get("code")),
+                   key=lambda f: (-len(files[f]["not_run"]), f))
+    rows = []
+    for f in built[:COVERAGE_ROWS]:
+        x = files[f]
+        cls = "pass" if not x["not_run"] else "fail" if not x["run"] else "warn"
+        rows.append(f'<tr><td><code>{_e(f)}</code></td>'
+                    f'<td class="num"><span class="badge {cls}">{x["run"]}/{x["code"]}</span></td>'
+                    f'<td>{_e(", ".join(sorted(x.get("by_scenario") or {})))}</td>'
+                    f'<td><code>{_e(ranges(x["not_run"]))}</code></td></tr>')
+    head = "".join(f"<th>{_e(t(k))}</th>" for k in ("report.coverage.col.file", "report.coverage.col.run",
+                   "report.coverage.col.by", "report.coverage.col.missed"))
+    scope = "culprit" if v.rec.get("outcome") == "localized" else "range"
+    tail = ""
+    if len(built) > COVERAGE_ROWS:
+        tail += f'<p class="muted">{_e(t("report.coverage.more", n=len(built) - COVERAGE_ROWS))}</p>'
+    if res.get("not_built"):
+        nb = res["not_built"]
+        tail += f'<p class="muted">{_e(t("report.coverage.not_built", files=", ".join(nb[:20]) + (" ..." if len(nb) > 20 else "")))}</p>'
+    code, run = res.get("code_lines", 0), res.get("run_lines", 0)
+    total = f'{t("report.k.coverage")}: ' + t("report.coverage.value", run=run, code=code,
+                                              pct=f"{100 * run / code:.0f}%" if code else "-")
+    return (f"<h2>{_e(t('report.h.coverage'))}</h2><p class=\"muted\">{_e(t('report.coverage.note'))} "
+            f"{_e(t('report.coverage.scope.' + scope))}</p><p>{_e(total)}</p>"
+            + (f'<div class="scroll"><table><thead><tr>{head}</tr></thead><tbody>{"".join(rows)}</tbody></table></div>'
+               if rows else "") + tail)
+
+
 def diff_html(lines: list[str]) -> str:
     out = []
     for line in lines[:MAX_DIFF_LINES]:
@@ -582,12 +625,27 @@ def sec_fix(v: Inv) -> str:
     head = "".join(f"<th>{_e(t(k))}</th>" for k in ("fix.cand", "fix.src", "fix.out", "fix.size", "report.th.notes"))
     return (f"<h2>{_e(t('report.h.fix'))}</h2><p class=\"muted\">{_e(t('report.fix.note'))}</p>"
             f'<div class="scroll"><table><thead><tr>{head}</tr></thead><tbody>{"".join(rows)}</tbody></table></div>'
-            + "".join(details))
+            + _before_after(v.fix.get("before_after") or []) + "".join(details))
+
+
+def _before_after(rows: list[dict]) -> str:
+    """Symptom metric means: good, bad, each candidate (fix.json "before_after")."""
+    from .fix import _num
+    if not rows:
+        return ""
+    names = list(rows[0]["candidates"])
+    head = "".join(f"<th>{_e(x)}</th>" for x in [t("fix.ba.metric"), "good", "bad", *names])
+    body = "".join(
+        f'<tr><td><code>{_e(r["scenario"])}</code> {_e(r["metric"])}</td>'
+        + "".join(f'<td class="num">{_e(_num(x))}</td>' for x in [r["good"], r["bad"], *(r["candidates"][n] for n in names)])
+        + "</tr>" for r in rows)
+    return (f'<p class="muted">{_e(t("fix.ba.note"))}</p>'
+            f'<div class="scroll"><table><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>')
 
 
 def build(inv_dir: Path) -> str:
     v = Inv(inv_dir)
-    body = [sec_summary(v), sec_verdicts(v), sec_plots(v), sec_bisect(v), sec_diff(v), sec_explanation(v), sec_fix(v)]
+    body = [sec_summary(v), sec_verdicts(v), sec_plots(v), sec_bisect(v), sec_coverage(v), sec_diff(v), sec_explanation(v), sec_fix(v)]
     lang = current_lang()
     return (f'<!doctype html><html lang="{lang}"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'

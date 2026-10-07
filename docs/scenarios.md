@@ -30,7 +30,8 @@ python -m forkpilot.cli fix investigations/<stamp>                 # re-flies th
 ```yaml
 name: company_survey            # required, must equal the file name without .yaml
 description: free text          # optional, ignored by the tools
-params: {WPNAV_SPEED: 500}      # optional: SITL parameters, NAME: number, set before arming
+params: {ANGLE_MAX: 3000}       # optional: SITL parameters, NAME: number, set before arming
+boot_params: {FLOW_TYPE: 10}    # optional: read at SITL boot, for drivers that start only then
 steps:                          # required: the flight, one `- step: argument` per line
   - takeoff: 12
   - hold: 3
@@ -43,6 +44,12 @@ expect:                         # optional: absolute rules on metrics
 Only `*.yaml` files in a directory are flown. Any other top-level key is an error, so a typo such
 as `step:` or `expects:` is caught instead of ignored. Parameter names are upper case, at most 16
 characters; values are numbers (write `1` or `0`, not `true` or `false`).
+
+Names with a double underscore (`pilot_sticks__MIS_OPTIONS_4`, `copter_sticks__ZIGZAG`) are what
+`investigate --targeted` generates in `$FP_HOME/targeted/`: parameter variants of your scenarios
+and stick templates for modes no scenario flies (see the quickstart). Keep your own names without
+`__` so they never meet one of those in the same run. A variant copies a scenario of yours too
+when it flies an affected mode, so the scenarios you add widen what targeting can vary.
 
 ## Steps
 
@@ -73,7 +80,7 @@ test fails when they differ from the code.
 | `fly` | number, seconds; or {until: s} | `fly: 8` | Wait while the pilot flies (sticks set). Like hold, but not judged as a hover. `{until: s}` waits until s seconds after the epoch step. |
 | `goto` | [north, east, up], metres from home | `goto: [30, 0, 15]` | GUIDED position target; waits until within 1 m of it (90 s limit). |
 | `hold` | number, seconds | `hold: 20` | Wait in place (sim time). Its window is judged as a hover (hold_* metrics) until the next goto, mode or set_param step. |
-| `mission` | list of [north, east, up] | `mission: [[40, 0, 20], [40, 40, 20]]` | Upload home, these waypoints and a final RTL. Start it with `mode: AUTO`. |
+| `mission` | list of mission items | `mission: [[40, 0, 20], [40, 40, 20]]` | Upload home and these items: [north, east, up] or one of `wp` ([north, east, up]), `spline` ([north, east, up] (spline waypoint)), `loiter_turns` ({at: [north, east, up], turns, radius}), `loiter_time` ({at: [north, east, up], seconds}), `delay` (seconds (NAV_DELAY)), `speed` (ground speed in m/s), `yaw` (heading in degrees (CONDITION_YAW)), `land` ([north, east]), `rtl` (true). A list of only waypoints gets a final RTL. Start it with `mode: AUTO`. |
 | `mode` | mode name, upper case | `mode: LOITER` | Switch flight mode and wait for the vehicle to report it. |
 | `release` | number, seconds; or {until: s} | `release: 15` | Centre roll, pitch and yaw (throttle stays) and watch the stop for this long: the stop_* metrics. `{until: s}` as for fly. |
 | `send_goto` | [north, east, up], metres from home | `send_goto: [150, 0, 10]` | Like goto but does not wait: for targets the firmware may refuse (a fence). |

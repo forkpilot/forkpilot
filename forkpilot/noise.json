@@ -1,0 +1,209 @@
+{
+ "aa": {
+  "guided_fast": {
+   "landing_offset_m": 0.4
+  }
+ },
+ "aa_source": "A/A f4669a7226, 2x8 runs (j12, j4), bench/aa_scenarios.md",
+ "factor": 1.25,
+ "min_pairs": 20,
+ "pairs": 40,
+ "source": "backfill 2025-10-06..2026-10-05, the larger of two weekly runs: 2026-10-05 (copter and plane, 102 ranges) and 2026-10-07 (copter with 14 scenarios, 49 ranges)",
+ "tolerance": {
+  "auto_mission": {
+   "disarm_delay_s": 0.181,
+   "flight_time_s": 0.437,
+   "mission_time_s": 0.721,
+   "mission_wp_reached": 0.417,
+   "takeoff_time_s": 0.082
+  },
+  "auto_mission_cmds": {
+   "disarm_delay_s": 0.19,
+   "flight_time_s": 0.413,
+   "mission_time_s": 0.768,
+   "takeoff_time_s": 0.086
+  },
+  "battery_low": {
+   "disarm_delay_s": 0.193,
+   "failsafe_reaction_s": 0.116,
+   "flight_time_s": 0.273,
+   "takeoff_time_s": 0.087
+  },
+  "circle": {
+   "disarm_delay_s": 0.2,
+   "flight_time_s": 0.105,
+   "landing_offset_m": 0.161,
+   "mode_yaw_rate_dps_circle4": 0.07,
+   "stick_speed_mps_circle2": 0.125,
+   "stop_dist_m_circle2": 0.086,
+   "takeoff_time_s": 0.089
+  },
+  "fence_avoid": {
+   "disarm_delay_s": 0.167,
+   "flight_time_s": 0.12,
+   "landing_offset_m": 0.18,
+   "stop_dist_m_alt_hold": 0.08,
+   "stop_dist_m_loiter2": 0.105,
+   "stop_time_s_alt_hold": 0.084,
+   "stop_time_s_loiter2": 0.102,
+   "takeoff_time_s": 0.075
+  },
+  "flow_rangefinder": {
+   "disarm_delay_s": 0.191,
+   "flight_time_s": 0.154,
+   "landing_offset_m": 0.17,
+   "range_max_m": 0.169,
+   "stop_dist_m_loiter": 0.103,
+   "stop_dist_m_loiter2": 0.137,
+   "takeoff_time_s": 0.053
+  },
+  "gps_loss": {
+   "failsafe_reaction_s": 0.172,
+   "flight_time_s": 0.412,
+   "goto_time_total_s": 0.412,
+   "landing_offset_m": 0.415,
+   "range_max_m": 0.232,
+   "takeoff_time_s": 0.097
+  },
+  "guided_cmds": {
+   "disarm_delay_s": 0.196,
+   "flight_time_s": 0.235,
+   "goto_time_total_s": 0.138,
+   "hold_drift_max_m": 0.117,
+   "hold_tilt_rms_deg": 0.139,
+   "range_max_m": 0.07,
+   "takeoff_time_s": 0.102
+  },
+  "guided_fast": {
+   "disarm_delay_s": 0.28,
+   "flight_time_s": 0.152,
+   "hold_alt_err_max_m": 0.149,
+   "hold_drift_max_m": 0.157,
+   "hold_tilt_rms_deg": 0.307,
+   "landing_offset_m": 0.953,
+   "takeoff_time_s": 0.087,
+   "vel_err_mps_2": 0.064
+  },
+  "hover": {
+   "disarm_delay_s": 0.109,
+   "flight_time_s": 0.126,
+   "hold_alt_err_max_m": 0.077,
+   "takeoff_time_s": 0.083
+  },
+  "pilot_sticks": {
+   "disarm_delay_s": 0.202,
+   "flight_time_s": 0.145,
+   "landing_offset_m": 0.665,
+   "mode_speed_mps_poshold": 0.063,
+   "mode_speed_mps_poshold3": 0.06,
+   "range_max_m": 0.663,
+   "stop_backtrack_m_poshold": 0.079,
+   "stop_backtrack_m_poshold2": 0.062,
+   "stop_dist_m_alt_hold": 0.087,
+   "stop_dist_m_loiter": 0.138,
+   "stop_dist_m_poshold": 0.191,
+   "stop_dist_m_poshold2": 0.465,
+   "stop_time_s_alt_hold": 0.083,
+   "stop_time_s_loiter": 0.074,
+   "stop_time_s_poshold2": 0.083,
+   "takeoff_time_s": 0.101
+  },
+  "plane_battery_rtl": {
+   "airspeed_max_mps": 0.118,
+   "airspeed_min_mps": 0.072,
+   "alt_max_m": 0.052,
+   "failsafe_reaction_s": 0.148,
+   "loiter_radius_m_rtl": 0.056,
+   "range_max_m": 1.441,
+   "takeoff_time_s": 0.125
+  },
+  "plane_mission": {
+   "airspeed_max_mps": 0.079,
+   "alt_max_m": 0.164,
+   "disarm_delay_s": 0.241,
+   "flight_time_s": 0.6,
+   "landing_offset_m": 5.69,
+   "leg_xtrack_max_m": 5.081,
+   "leg_xtrack_rms_m": 0.059,
+   "range_max_m": 1.591,
+   "rollout_m": 2.099,
+   "takeoff_time_s": 0.1,
+   "touchdown_along_m": 4.929,
+   "touchdown_err_m": 4.929,
+   "touchdown_gs_mps": 0.966,
+   "touchdown_speed_mps": 0.365
+  },
+  "plane_modes": {
+   "airspeed_max_mps": 0.12,
+   "loiter_radius_m_loiter": 0.106,
+   "loiter_track_err_m_loiter": 0.057,
+   "mode_speed_mps_loiter": 0.059,
+   "mode_yaw_rate_dps_fbwa2": 0.057,
+   "range_max_m": 9.356,
+   "takeoff_time_s": 0.117
+  },
+  "quadplane_mission": {
+   "airspeed_min_mps": 0.118,
+   "alt_max_m": 0.102,
+   "back_transition_dist_m_1": 2.936,
+   "back_transition_time_s_1": 0.154,
+   "disarm_delay_s": 0.298,
+   "flight_time_s": 0.819,
+   "leg_alt_err_rms_m": 0.065,
+   "leg_xtrack_max_m": 12.985,
+   "leg_xtrack_rms_m": 0.113,
+   "range_max_m": 0.37,
+   "takeoff_time_s": 0.086,
+   "transition_fw_time_s_1": 0.25
+  },
+  "quadplane_modes": {
+   "alt_max_m": 0.886,
+   "back_transition_dist_m_1": 3.981,
+   "back_transition_time_s_1": 0.15,
+   "disarm_delay_s": 0.269,
+   "flight_time_s": 1.119,
+   "hold_alt_err_max_m": 0.055,
+   "landing_offset_m": 9.057,
+   "mode_speed_mps_qloiter": 0.175,
+   "mode_yaw_rate_dps_cruise2": 0.06,
+   "range_max_m": 9.116,
+   "takeoff_time_s": 0.148,
+   "transition_fw_time_s_1": 0.25
+  },
+  "quadplane_rc_loss": {
+   "airspeed_max_mps": 0.05,
+   "airspeed_min_mps": 0.067,
+   "alt_max_m": 0.323,
+   "back_transition_dist_m_1": 5.53,
+   "back_transition_time_s_1": 0.217,
+   "disarm_delay_s": 0.202,
+   "failsafe_reaction_s": 0.4,
+   "flight_time_s": 1.801,
+   "range_max_m": 2.743,
+   "takeoff_time_s": 0.128,
+   "transition_fw_time_s_1": 0.25
+  },
+  "rc_loss": {
+   "disarm_delay_s": 0.158,
+   "failsafe_reaction_s": 0.05,
+   "flight_time_s": 0.16,
+   "takeoff_time_s": 0.077
+  },
+  "square_mission": {
+   "disarm_delay_s": 0.271,
+   "flight_time_s": 0.182,
+   "goto_time_total_s": 0.078,
+   "hold_drift_max_m": 0.073,
+   "hold_tilt_rms_deg": 0.174,
+   "takeoff_time_s": 0.108
+  },
+  "wind_hover": {
+   "disarm_delay_s": 0.267,
+   "flight_time_s": 0.88,
+   "hold_alt_err_max_m": 0.078,
+   "hold_tilt_rms_deg": 0.077,
+   "takeoff_time_s": 0.106,
+   "touchdown_speed_mps": 0.061
+  }
+ }
+}

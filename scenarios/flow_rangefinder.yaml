@@ -1,0 +1,25 @@
+name: flow_rangefinder
+# A downward rangefinder and an optical flow sensor next to GPS; the EKF fuses the flow velocity
+# too (EK3_SRC_OPTIONS 1), and LOITER and ALT_HOLD track the surface with the rangefinder.
+# Sensor setup as upstream autotest OpticalFlow. Added 2026-10-06 from a year of weekly coverage
+# (changed lines no scenario flew: AP_NavEKF3_OptFlowFusion, rangefinder); not written from any
+# benchmark case.
+boot_params: {SIM_FLOW_ENABLE: 1, SIM_FLOW_RND: 0.02, FLOW_TYPE: 10, RNGFND1_TYPE: 1, RNGFND1_MIN: 0,
+              RNGFND1_MAX: 40, RNGFND1_SCALING: 12.12, RNGFND1_PIN: 0, EK3_SRC2_VELXY: 5,
+              EK3_SRC_OPTIONS: 1}
+steps:
+  - takeoff: 10
+  - sticks: {throttle: 1500}
+  - mode: LOITER
+  - fly: 10
+  - sticks: {pitch: 1300}
+  - fly: 8
+  - release: 15
+  - sticks: {roll: 1700}
+  - fly: 6
+  - release: 15
+  - mode: ALT_HOLD
+  - hold: 8
+  - mode: LAND
+  - wait_disarm: 120
+expect: {}

@@ -70,11 +70,24 @@ def check_module(dist: str, why: str, required: bool = True, pin: str | None = N
     return Check(OK, label, installed)
 
 
+def check_pkg_resources(found: bool | None = None) -> Check:
+    """Older ArduPilot (DroneCAN's DSDL generator) imports pkg_resources: setuptools before 81."""
+    if found is None:
+        import importlib.util
+        found = importlib.util.find_spec("pkg_resources") is not None
+    label = "pkg_resources (build of older ArduPilot)"
+    if found:
+        return Check(OK, label, "importable")
+    return Check(FAIL, label, "not importable: older commits fail in dronecangen",
+                 "pip install 'setuptools<81'")
+
+
 def python_deps() -> list[Check]:
     out = [check_module("pymavlink", "MAVLink to SITL"),
            check_module("PyYAML", "scenario files"),
            check_module("empy", "ArduPilot build", pin=EMPY_PINNED),
-           check_module("pexpect", "ArduPilot build")]
+           check_module("pexpect", "ArduPilot build"),
+           check_pkg_resources()]
     # only the autotest suite imports these (autotest_bridge runs ArduPilot's own test code)
     extra = "pip install -e '.[autotest]' in the ForkPilot clone"
     out += [check_module("MAVProxy", "--suite autotest only", required=False, hint=extra),
@@ -261,7 +274,7 @@ def smoke_build(repo: Path, log=print) -> list[Check]:
             tail = info.get("error", "").strip().splitlines()[-6:]
             return [Check(FAIL, "build", "waf failed: " + " | ".join(tail)[-500:],
                           f"full log: {WORK}/builds/cache/{info['sha']}/build.log. 'you need to install empy' / "
-                          "'pexpect' means a missing Python module in the environment ForkPilot runs in")]
+                          "'pexpect' / 'pkg_resources' means a missing Python module in the environment ForkPilot runs in")]
         out = [Check(OK, "build", f"{binary} ({'cached' if info['cached'] else str(info['seconds']) + ' s'})")]
         log("flying hover once ...")
         d = Path(tempfile.mkdtemp(prefix="doctor-", dir=WORK))

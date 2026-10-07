@@ -1,0 +1,573 @@
+diff --git a/libraries/APM_Control/AP_FW_Controller.cpp b/libraries/APM_Control/AP_FW_Controller.cpp
+index 12c4f87e3f..cd3230bab4 100644
+--- a/libraries/APM_Control/AP_FW_Controller.cpp
++++ b/libraries/APM_Control/AP_FW_Controller.cpp
+@@ -23,0 +24 @@
++#include <AP_Math/AP_Math.h>
+@@ -32,0 +34,95 @@ AP_FW_Controller::AP_FW_Controller(const AP_FixedWing &parms, const AC_PID::Defa
++// Return true if input shaping should be used
++bool AP_FW_Controller::should_apply_input_shaping() const
++{
++    // Must be using rate limits
++    if (!should_apply_rate_limits()) {
++        return false;
++    }
++
++    // Accel limit must be set
++    if (!is_positive(accel_limit.get())) {
++        return false;
++    }
++
++    // auto-tune must not be running
++    if ((autotune != nullptr) && autotune->running) {
++        return false;
++    }
++
++    return true;
++}
++
++// Run angle controller
++float AP_FW_Controller::run_angle_control(int32_t desired_angle_cd, float scaler, bool disable_integrator, bool ground_mode)
++{
++    // Ensure tau is valid
++    if (gains.tau < 0.05f) {
++        gains.tau.set(0.05f);
++    }
++    const float desired_angle_deg = wrap_180(desired_angle_cd * 0.01);
++
++    if (!should_apply_input_shaping()) {
++        // Calculate rate directly from angle error with no input shaping
++        angle_err_deg = wrap_180(desired_angle_deg - get_measured_angle());
++        float desired_rate = angle_err_deg / gains.tau;
++
++        // Reset input shaping set points
++        reset_input_shaping(desired_angle_deg, desired_rate);
++
++        // Add coordination offset
++        desired_rate += get_rate_target_offset();
++
++        // Apply rate limits if enabled
++        if (should_apply_rate_limits()) {
++            desired_rate = rate_limit(desired_rate);
++        }
++
++        // Run rate controller
++        return run_axis_rate_control(desired_rate, scaler, disable_integrator, ground_mode);
++    }
++
++    // Apply input shaping to desired angle
++    const float dt = AP::scheduler().get_loop_period_s();
++
++    const float accel_max = accel_limit.get();
++    const float jerk_limit = accel_max / MAX(gains.tau.get(), 0.1);
++
++    // Ensure the shortest path is taken
++    const float angle_error = wrap_180(desired_angle_deg - angle_target_deg);
++
++    // Apply input shaping updating the accel target
++    shape_pos_vel_accel(
++        angle_error, 0.0, 0.0, // desired pos, vel and accel
++        0.0, rate_target_deg, accel_target_deg, // current shaped target
++        -get_negative_rate_limit(), get_positive_rate_limit(), // velocity limits
++        -accel_max, accel_max, // accel limits
++        jerk_limit, // jerk limit
++        dt, true
++    );
++
++    // Integrate pos and vel from updated accel target
++    angle_target_deg += rate_target_deg * dt + accel_target_deg * 0.5 * sq(dt);
++    rate_target_deg += accel_target_deg * dt;
++
++    // Make sure target remains in the range +-180
++    angle_target_deg = wrap_180(angle_target_deg);
++
++    // Calculate angle error
++    angle_err_deg = wrap_180(angle_target_deg - get_measured_angle());
++
++    // Use 1 / tau if angle gain is not set
++    float angle_gain = 1.0 / gains.tau.get();
++    if (is_positive(angle_p.get())) {
++        angle_gain = angle_p.get();
++    }
++
++    // Apply gain using sqrt controller
++    float desired_rate = sqrt_controller(angle_err_deg, angle_gain, accel_max * 0.5, dt);
++
++    // Add feed forward rate demand and offset then constrain to rate limit
++    desired_rate = rate_limit(desired_rate + rate_target_deg + get_rate_target_offset());
++
++    // Run rate controller
++    return run_axis_rate_control(desired_rate, scaler, disable_integrator, ground_mode);
++}
++
+@@ -36 +132 @@ AP_FW_Controller::AP_FW_Controller(const AP_FixedWing &parms, const AC_PID::Defa
+-float AP_FW_Controller::_get_rate_out(float desired_rate, float scaler, bool disable_integrator, bool ground_mode)
++float AP_FW_Controller::run_rate_control(float desired_rate, float scaler, bool disable_integrator, bool ground_mode)
+@@ -110 +206 @@ float AP_FW_Controller::_get_rate_out(float desired_rate, float scaler, bool dis
+-float AP_FW_Controller::get_rate_out(float desired_rate, float scaler)
++float AP_FW_Controller::run_rate_control(float desired_rate, float scaler)
+@@ -112 +208,34 @@ float AP_FW_Controller::get_rate_out(float desired_rate, float scaler)
+-    return _get_rate_out(desired_rate, scaler, false, false);
++    // Zero angle error in pure rate control
++    angle_err_deg = 0.0;
++
++    if (!should_apply_input_shaping()) {
++        // Reset input shaping set points
++        reset_input_shaping(get_measured_angle(), desired_rate);
++
++        // run rate control with no input shaping
++        return run_rate_control(desired_rate, scaler, false, false);
++    }
++
++    // Apply input shaping to desired rate
++    const float dt = AP::scheduler().get_loop_period_s();
++
++    // Reset the input shaping target angle
++    angle_target_deg = get_measured_angle();
++
++    const float accel_max = accel_limit.get();
++    const float jerk_limit = accel_max / MAX(gains.tau.get(), 0.1);
++
++    // Apply input shaping updating the accel target
++    shape_pos_vel_accel(
++        0.0, desired_rate, 0.0,                 // desired pos, vel and accel
++        0.0, rate_target_deg, accel_target_deg, // current shaped target
++        -get_negative_rate_limit(), get_positive_rate_limit(), // velocity limits
++        -accel_max, accel_max, // accel limits
++        jerk_limit, // jerk limit
++        dt, true
++    );
++
++    rate_target_deg += accel_target_deg * dt;
++
++    // Run rate controller
++    return run_rate_control(rate_target_deg, scaler, false, false);
+@@ -114,0 +244 @@ float AP_FW_Controller::get_rate_out(float desired_rate, float scaler)
++// Reset I term
+@@ -117,0 +248 @@ void AP_FW_Controller::reset_I()
++    _last_out = 0.0;
+@@ -158,0 +290 @@ void AP_FW_Controller::autotune_start(void)
++// Return the airspeed in m/s
+@@ -168,0 +301,67 @@ float AP_FW_Controller::get_airspeed() const
++// Reset controller
++void AP_FW_Controller::reset()
++{
++    // Reset PID
++    rate_pid.reset_I();
++    rate_pid.reset_filter();
++    _last_out = 0.0;
++
++    // Reset input shaping
++    reset_input_shaping(get_measured_angle(), get_measured_rate());
++}
++
++// Apply positive and negative rate limits to passed in value
++float AP_FW_Controller::rate_limit(float rate) const
++{
++    const float pos_rate_limit = get_positive_rate_limit();
++    if (is_positive(pos_rate_limit)) {
++        rate = MIN(rate, pos_rate_limit);
++    }
++
++    const float neg_rate_limit = get_negative_rate_limit();
++    if (is_positive(neg_rate_limit)) {
++        rate = MAX(rate, -neg_rate_limit);
++    }
++
++    return rate;
++}
++
++// Reset input shaping applying rate limits
++void AP_FW_Controller::reset_input_shaping(const float angle, const float rate)
++{
++    // No angle limits at the controller level, reset to the passed in angle
++    angle_target_deg = angle;
++
++    // Reset to passed in rate and apply rate limits
++    rate_target_deg = rate_limit(rate);
++
++    // Reset accel to zero
++    accel_target_deg = 0.0;
++}
++
++// Get input shaping angle, rate and accel for logging
++void AP_FW_Controller::get_input_shaping(float &angle, float &rate, float &accel) const
++{
++    angle = angle_target_deg;
++    rate = rate_target_deg;
++    accel = accel_target_deg;
++}
++
++// Reset the attitude target to such that a change in attitude due to an ahrs change is smooth
++void AP_FW_Controller::ahrs_reset()
++{
++    // Update the target angle such that the angle error remains the same before and after the change in measured angle from the ahrs
++    angle_target_deg = wrap_180(get_measured_angle() + angle_err_deg);
++}
++
++// Get angle P gain
++float AP_FW_Controller::get_angle_p() const
++{
++    if (should_apply_input_shaping() && is_positive(angle_p.get())) {
++        // Angle gain is in use and configured
++        return angle_p.get();
++    }
++
++    // angle gain = 1 / tau
++    return 1.0 / gains.tau.get();
++}
+diff --git a/libraries/APM_Control/AP_FW_Controller.h b/libraries/APM_Control/AP_FW_Controller.h
+index 159ce29915..633f95c8fe 100644
+--- a/libraries/APM_Control/AP_FW_Controller.h
++++ b/libraries/APM_Control/AP_FW_Controller.h
+@@ -15,2 +15,5 @@ public:
+-    float get_rate_out(float desired_rate, float scaler);
+-    virtual float get_servo_out(int32_t angle_err, float scaler, bool disable_integrator, bool ground_mode) = 0;
++    // Run angle controller
++    float run_angle_control(int32_t desired_angle_cd, float scaler, bool disable_integrator, bool ground_mode);
++
++    // Run pure rate control
++    float run_rate_control(float desired_rate, float scaler);
+@@ -21,0 +25 @@ public:
++    // Reset I term
+@@ -23,0 +28,3 @@ public:
++    // Reset controller
++    void reset();
++
+@@ -45,0 +53,12 @@ public:
++    // Get input shaping angle, rate, and accel for logging
++    void get_input_shaping(float &angle, float &rate, float &accel) const;
++
++    // Get the angle error in degrees
++    float get_angle_error_deg() const { return angle_err_deg; }
++
++    // Reset the attitude target to such that a change in attitude due to an ahrs change is smooth
++    void ahrs_reset();
++
++    // Get angle P gain
++    float get_angle_p() const;
++
+@@ -58 +77,3 @@ protected:
+-    float _get_rate_out(float desired_rate, float scaler, bool disable_integrator, bool ground_mode);
++    virtual float run_axis_rate_control(float desired_rate, float scaler, bool disable_integrator, bool ground_mode) = 0;
++
++    float run_rate_control(float desired_rate, float scaler, bool disable_integrator, bool ground_mode);
+@@ -59,0 +81 @@ protected:
++    // Return true if the airspeed should be considered as under speed
+@@ -61,0 +84 @@ protected:
++    // Return the airspeed in m/s
+@@ -63,0 +87,4 @@ protected:
++    // Return the measured angle in degrees
++    virtual float get_measured_angle() const = 0;
++
++    // Return the measured rate in radians per second
+@@ -65,0 +93,30 @@ protected:
++    // Return true if input shaping should be used
++    bool should_apply_input_shaping() const;
++
++    // Return true if rate limits should be applied
++    virtual bool should_apply_rate_limits() const = 0;
++
++    // Apply positive and negative rate limits to passed in value
++    float rate_limit(float rate) const;
++
++    // Return rate target offset in deg per second, this is used in angle control
++    virtual float get_rate_target_offset() const { return 0.0; }
++
++    // Return positive rate limit in deg per second, zero if disabled
++    virtual float get_positive_rate_limit() const = 0;
++
++    // Return negative rate limit in deg per second, zero if disabled
++    virtual float get_negative_rate_limit() const = 0;
++
++    // Reset input shaping to the given values
++    void reset_input_shaping(const float angle, const float rate);
++
++    // Set point tracking for input shaping
++    float angle_target_deg;
++    float rate_target_deg;
++    float accel_target_deg;
++
++    // Input shaping accel limit and angle P gain
++    AP_Float accel_limit;
++    AP_Float angle_p;
++
+diff --git a/libraries/APM_Control/AP_PitchController.cpp b/libraries/APM_Control/AP_PitchController.cpp
+index b064515b95..8428525843 100644
+--- a/libraries/APM_Control/AP_PitchController.cpp
++++ b/libraries/APM_Control/AP_PitchController.cpp
+@@ -159,0 +160,17 @@ const AP_Param::GroupInfo AP_PitchController::var_info[] = {
++    // @Param: 2SRV_ACCEL
++    // @DisplayName: Pitch max acceleration
++    // @Description: Pitch acceleration limit. Setting to zero disables input shaping.
++    // @Range: 0 2500
++    // @Units: deg/s/s
++    // @Increment: 1
++    // @User: Advanced
++    AP_GROUPINFO("2SRV_ACCEL", 12, AP_PitchController, accel_limit, 500),
++
++    // @Param: _ANGLE_P
++    // @DisplayName: Pitch angle P gain
++    // @Description: Pitch angle P gain. If zero a gain of (1 / PTCH2SRV_TCONST) will be used.
++    // @Range: 0.000 12.000
++    // @Increment: 0.01
++    // @User: Advanced
++    AP_GROUPINFO("_ANGLE_P", 13, AP_PitchController, angle_p, 0.0),
++
+@@ -181,0 +199,7 @@ AP_PitchController::AP_PitchController(const AP_FixedWing &parms)
++// Return the measured pitch angle in degrees
++float AP_PitchController::get_measured_angle() const
++{
++    return AP::ahrs().get_pitch_deg();
++}
++
++// Return the measured pitch rate in radians per second
+@@ -186,0 +211 @@ float AP_PitchController::get_measured_rate() const
++// Return true if the airspeed should be considered as under speed
+@@ -192,3 +217,5 @@ bool AP_PitchController::is_underspeed() const
+-/*
+-  get the rate offset in degrees/second needed for pitch in body frame
+-  to maintain height in a coordinated turn.
++// Return true if the vehicle is inverted
++bool AP_PitchController::is_inverted() const
++{
++    return fabsf(AP::ahrs().get_roll_deg()) >= 90.0;
++}
+@@ -196,4 +223,2 @@ bool AP_PitchController::is_underspeed() const
+-  Also returns the inverted flag and the estimated airspeed in m/s for
+-  use by the rest of the pitch controller
+- */
+-float AP_PitchController::_get_coordination_rate_offset(bool &inverted) const
++// Return positive rate limit in deg per second, zero if disabled
++float AP_PitchController::get_positive_rate_limit() const
+@@ -201 +226,21 @@ float AP_PitchController::_get_coordination_rate_offset(bool &inverted) const
+-    float bank_angle = AP::ahrs().get_roll_rad();
++    return MAX(gains.rmax_pos.get(), 0.0);
++}
++
++// Return negative rate limit in deg per second (as a positive number) zero if disabled
++float AP_PitchController::get_negative_rate_limit() const
++{
++    return MAX(gains.rmax_neg.get(), 0.0);
++}
++
++// Return true if rate limits should be applied
++bool AP_PitchController::should_apply_rate_limits() const
++{
++    return !is_inverted();
++}
++
++// get the rate offset in degrees/second needed for pitch in body frame to maintain height in a coordinated turn.
++float AP_PitchController::get_rate_target_offset() const
++{
++    const AP_AHRS &_ahrs = AP::ahrs();
++
++    float bank_angle = _ahrs.get_roll_rad();
+@@ -204 +249 @@ float AP_PitchController::_get_coordination_rate_offset(bool &inverted) const
+-    if (fabsf(bank_angle) < radians(90)) {
++    if (!is_inverted()) {
+@@ -206 +250,0 @@ float AP_PitchController::_get_coordination_rate_offset(bool &inverted) const
+-        inverted = false;
+@@ -209 +252,0 @@ float AP_PitchController::_get_coordination_rate_offset(bool &inverted) const
+-        inverted = true;
+@@ -212 +254,0 @@ float AP_PitchController::_get_coordination_rate_offset(bool &inverted) const
+-    const AP_AHRS &_ahrs = AP::ahrs();
+@@ -230,4 +271,0 @@ float AP_PitchController::_get_coordination_rate_offset(bool &inverted) const
+-    if (inverted) {
+-        rate_offset = -rate_offset;
+-    }
+-
+@@ -239 +277 @@ float AP_PitchController::_get_coordination_rate_offset(bool &inverted) const
+-float AP_PitchController::get_servo_out(int32_t angle_err, float scaler, bool disable_integrator, bool ground_mode)
++float AP_PitchController::run_axis_rate_control(float desired_rate, float scaler, bool disable_integrator, bool ground_mode)
+@@ -241,28 +279,3 @@ float AP_PitchController::get_servo_out(int32_t angle_err, float scaler, bool di
+-    // Calculate offset to pitch rate demand required to maintain pitch angle whilst banking
+-    // Calculate ideal turn rate from bank angle and airspeed assuming a level coordinated turn
+-    // Pitch rate offset is the component of turn rate about the pitch axis
+-    bool inverted;
+-
+-    if (gains.tau < 0.05f) {
+-        gains.tau.set(0.05f);
+-    }
+-
+-    const float rate_offset = _get_coordination_rate_offset(inverted);
+-
+-    // Calculate the desired pitch rate (deg/sec) from the angle error
+-    angle_err_deg = angle_err * 0.01;
+-    float desired_rate = angle_err_deg / gains.tau;
+-
+-    // limit the maximum pitch rate demand. Don't apply when inverted
+-    // as the rates will be tuned when upright, and it is common that
+-    // much higher rates are needed inverted
+-    if (!inverted) {
+-        desired_rate += rate_offset;
+-        if (gains.rmax_neg && desired_rate < -gains.rmax_neg) {
+-            desired_rate = -gains.rmax_neg;
+-        } else if (gains.rmax_pos && desired_rate > gains.rmax_pos) {
+-            desired_rate = gains.rmax_pos;
+-        }
+-    } else {
+-        // Make sure not to invert the turn coordination offset
+-        desired_rate = -desired_rate + rate_offset;
++    // Invert desired if vehicle is inverted.
++    if (is_inverted()) {
++        desired_rate *= -1.0;
+@@ -291 +304 @@ float AP_PitchController::get_servo_out(int32_t angle_err, float scaler, bool di
+-    return _get_rate_out(desired_rate, scaler, disable_integrator, ground_mode);
++    return run_rate_control(desired_rate, scaler, disable_integrator, ground_mode);
+diff --git a/libraries/APM_Control/AP_PitchController.h b/libraries/APM_Control/AP_PitchController.h
+index 652cc236da..47419c172e 100644
+--- a/libraries/APM_Control/AP_PitchController.h
++++ b/libraries/APM_Control/AP_PitchController.h
+@@ -13,2 +12,0 @@ public:
+-    float get_servo_out(int32_t angle_err, float scaler, bool disable_integrator, bool ground_mode) override;
+-
+@@ -22 +20 @@ private:
+-    float _get_coordination_rate_offset(bool &inverted) const;
++    float run_axis_rate_control(float desired_rate, float scaler, bool disable_integrator, bool ground_mode) override;
+@@ -23,0 +22 @@ private:
++    // Return true if the airspeed should be considered as under speed
+@@ -24,0 +24,5 @@ private:
++
++    // Return the measured pitch angle in degrees
++    float get_measured_angle() const override;
++
++    // Return the measured pitch rate in radians per second
+@@ -26,0 +31,15 @@ private:
++    // Return true if rate limits should be applied
++    bool should_apply_rate_limits() const override;
++
++    // Return rate target offset in deg per second, this is used in angle control
++    float get_rate_target_offset() const override;
++
++    // Return positive rate limit in deg per second, zero if disabled
++    float get_positive_rate_limit() const override;
++
++    // Return negative rate limit in deg per second (as a positive number) zero if disabled
++    float get_negative_rate_limit() const override;
++
++    // Return true if the vehicle is inverted
++    bool is_inverted() const;
++
+diff --git a/libraries/APM_Control/AP_RollController.cpp b/libraries/APM_Control/AP_RollController.cpp
+index 56d607ba04..f9e7a94669 100644
+--- a/libraries/APM_Control/AP_RollController.cpp
++++ b/libraries/APM_Control/AP_RollController.cpp
+@@ -142,0 +143,17 @@ const AP_Param::GroupInfo AP_RollController::var_info[] = {
++    // @Param: 2SRV_ACCEL
++    // @DisplayName: Roll max acceleration
++    // @Description: Roll acceleration limit. Setting to zero disables input shaping.
++    // @Range: 0 2500
++    // @Units: deg/s/s
++    // @Increment: 1
++    // @User: Advanced
++    AP_GROUPINFO("2SRV_ACCEL", 10, AP_RollController, accel_limit, 500),
++
++    // @Param: _ANGLE_P
++    // @DisplayName: Roll angle P gain
++    // @Description: Roll angle P gain. If zero a gain of (1 / RLL2SRV_TCONST) will be used.
++    // @Range: 0.000 12.000
++    // @Increment: 0.01
++    // @User: Advanced
++    AP_GROUPINFO("_ANGLE_P", 11, AP_RollController, angle_p, 0.0),
++
+@@ -165,0 +183,7 @@ AP_RollController::AP_RollController(const AP_FixedWing &parms)
++// Return the measured roll angle in degrees
++float AP_RollController::get_measured_angle() const
++{
++    return AP::ahrs().get_roll_deg();
++}
++
++// Return the measured roll rate in radians per second
+@@ -170,0 +195 @@ float AP_RollController::get_measured_rate() const
++// Return true if the airspeed should be considered as under speed
+@@ -175,0 +201,18 @@ bool AP_RollController::is_underspeed() const
++// Return positive rate limit in deg per second, zero if disabled
++float AP_RollController::get_positive_rate_limit() const
++{
++    return MAX(gains.rmax_pos.get(), 0.0);
++}
++
++// Return negative rate limit in deg per second (as a positive number) zero if disabled
++float AP_RollController::get_negative_rate_limit() const
++{
++    return get_positive_rate_limit();
++}
++
++// Return true if rate limits should be applied
++bool AP_RollController::should_apply_rate_limits() const
++{
++    return !in_recovery;
++}
++
+@@ -179,5 +221,0 @@ bool AP_RollController::is_underspeed() const
+- Inputs are:
+- 1) demanded bank angle in centi-degrees
+- 2) control gain scaler = scaling_speed / aspeed
+- 3) boolean which is true when stabilise mode is active
+- 4) minimum FBW airspeed (metres/sec)
+@@ -185 +223 @@ bool AP_RollController::is_underspeed() const
+-float AP_RollController::get_servo_out(int32_t angle_err, float scaler, bool disable_integrator, bool ground_mode)
++float AP_RollController::run_axis_rate_control(float desired_rate, float scaler, bool disable_integrator, bool ground_mode)
+@@ -187,8 +224,0 @@ float AP_RollController::get_servo_out(int32_t angle_err, float scaler, bool dis
+-    if (gains.tau < 0.05f) {
+-        gains.tau.set(0.05f);
+-    }
+-
+-    // Calculate the desired roll rate (deg/sec) from the angle error
+-    angle_err_deg = angle_err * 0.01;
+-    float desired_rate = angle_err_deg/ gains.tau;
+-
+@@ -213,11 +243 @@ float AP_RollController::get_servo_out(int32_t angle_err, float scaler, bool dis
+-    if (!in_recovery) {
+-        // Limit the demanded roll rate. When we are in a VTOL
+-        // recovery we don't apply the limit
+-        if (gains.rmax_pos && desired_rate < -gains.rmax_pos) {
+-            desired_rate = - gains.rmax_pos;
+-        } else if (gains.rmax_pos && desired_rate > gains.rmax_pos) {
+-            desired_rate = gains.rmax_pos;
+-        }
+-    }
+-
+-    // the in_recovery flag is single loop only
++    // in_recovery flag is only valid for single loop, clear it
+@@ -226 +246 @@ float AP_RollController::get_servo_out(int32_t angle_err, float scaler, bool dis
+-    return _get_rate_out(desired_rate, scaler, disable_integrator, ground_mode);
++    return run_rate_control(desired_rate, scaler, disable_integrator, ground_mode);
+diff --git a/libraries/APM_Control/AP_RollController.h b/libraries/APM_Control/AP_RollController.h
+index 63ed006761..b9ddcd6c6d 100644
+--- a/libraries/APM_Control/AP_RollController.h
++++ b/libraries/APM_Control/AP_RollController.h
+@@ -13,2 +12,0 @@ public:
+-    float get_servo_out(int32_t angle_err, float scaler, bool disable_integrator, bool ground_mode) override;
+-
+@@ -27,0 +26,3 @@ private:
++    float run_axis_rate_control(float desired_rate, float scaler, bool disable_integrator, bool ground_mode) override;
++
++    // Return true if the airspeed should be considered as under speed
+@@ -28,0 +30,5 @@ private:
++
++    // Return the measured roll angle in degrees
++    float get_measured_angle() const override;
++
++    // Return the measured roll rate in radians per second
+@@ -30,0 +37,9 @@ private:
++    // Return true if rate limits should be applied
++    bool should_apply_rate_limits() const override;
++
++    // Return positive rate limit in deg per second, zero if disabled
++    float get_positive_rate_limit() const override;
++
++    // Return negative rate limit in deg per second (as a positive number) zero if disabled
++    float get_negative_rate_limit() const override;
++
+diff --git a/libraries/APM_Control/examples/AP_FW_Controller_test/AP_FW_Controller_test.cpp b/libraries/APM_Control/examples/AP_FW_Controller_test/AP_FW_Controller_test.cpp
+index 2deaecfb02..3e004f3e29 100644
+--- a/libraries/APM_Control/examples/AP_FW_Controller_test/AP_FW_Controller_test.cpp
++++ b/libraries/APM_Control/examples/AP_FW_Controller_test/AP_FW_Controller_test.cpp
+@@ -251 +251 @@ void loop(void)
+-            output = roll_control.get_servo_out(angle_error_cd, speed_scaler, disable_integrator, ground_mode);
++            output = roll_control.run_angle_control(nav_angle_cd, speed_scaler, disable_integrator, ground_mode);
+@@ -257 +257 @@ void loop(void)
+-            output = pitch_control.get_servo_out(angle_error_cd, speed_scaler, disable_integrator, ground_mode);
++            output = pitch_control.run_angle_control(nav_angle_cd, speed_scaler, disable_integrator, ground_mode);

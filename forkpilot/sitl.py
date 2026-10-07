@@ -30,6 +30,7 @@ class Sitl:
     params: dict = field(default_factory=dict)
     binary_path: Path | None = None
     defaults: str = ""      # --defaults; empty: Copter's, saved with a cached build
+    boot_params: dict = field(default_factory=dict)     # read at boot: drivers a set after boot misses
 
     proc: subprocess.Popen | None = None
     mav: mavutil.mavfile | None = None
@@ -50,6 +51,10 @@ class Sitl:
         defaults = self.defaults or self.binary.parent / "copter.parm"      # saved with a cached build
         if not self.defaults and not defaults.exists():
             defaults = self.ardupilot / "Tools" / "autotest" / "default_params" / "copter.parm"
+        if self.boot_params:
+            boot = self.workdir / "boot.parm"
+            boot.write_text("".join(f"{k} {v}\n" for k, v in self.boot_params.items()))
+            defaults = f"{defaults},{boot}"
         cmd = [str(self.binary), "--model", self.model, "--speedup", str(self.speedup),
                "-I", str(self.instance), "--home", HOME, "--defaults", str(defaults), "-w"]
         self.proc = subprocess.Popen(cmd, cwd=self.workdir, stdout=subprocess.DEVNULL,
@@ -57,8 +62,11 @@ class Sitl:
         deadline = time.time() + timeout
         while time.time() < deadline:
             try:
+                # retries=1: one connect attempt that raises; this loop retries, without
+                # pymavlink's own "Connection refused sleeping" lines on the console
                 self.mav = mavutil.mavlink_connection(f"tcp:127.0.0.1:{self.port}",
-                                                      source_system=255, autoreconnect=False)
+                                                      source_system=255, autoreconnect=False,
+                                                      retries=1)
                 # without autoreconnect pymavlink keeps reading a closed socket and prints
                 # "EOF on TCP socket" in a busy loop; fail the attempt instead
                 self.mav.handle_eof = _closed

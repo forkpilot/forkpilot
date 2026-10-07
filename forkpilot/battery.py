@@ -170,6 +170,6 @@ def judge(candidate: Path, baseline: Path | None = None, only=None, dirs=None):
     for name in names:
         # a scenario with no metrics at all never produced telemetry: that is a failure
         runs = cand.get(name) or [{"completed": 0.0}]
-        report[name] = oracle.verdict(runs, expect_for(name, dirs), base.get(name))
+        report[name] = oracle.verdict(runs, expect_for(name, dirs), base.get(name), name)
     worst = max((v for v, _ in report.values()), key=RANK.get, default="PASS")
     return worst, report

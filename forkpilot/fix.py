@@ -214,7 +214,7 @@ def holds(sig: tuple, cand: list[dict], base: list[dict], dirs=None) -> bool:
     name, metric, kind, side = sig
     if kind == "drift":
         return oracle.confirm_shift([m.get(metric) for m in base], [m.get(metric) for m in cand],
-                                    side, alpha=CONFIRM_ALPHA)
+                                    side, alpha=CONFIRM_ALPHA, abs_tol=oracle.noise_tol(name, metric))
 
     def broke(runs):
         return sum(any(f.signature() == (metric, kind, side) for f in
@@ -259,6 +259,25 @@ def evaluate(rec_dir: Path, name: str, suite, binary: Path, targets: list[str], 
     res["outcome"] = "side_effects" if new else "fixes"
     res["full_battery"] = suite.name == "scenarios"
     return res
+
+
+def _mean(runs: list[dict], metric: str):
+    xs = [m[metric] for m in runs if isinstance(m.get(metric), (int, float))]
+    return sum(xs) / len(xs) if xs else None
+
+
+def before_after(inv_dir: Path, base_dir: Path, bad_dir: Path, wanted, names: list[str]) -> list[dict]:
+    """Per symptom metric: mean on good, on bad, and on each candidate that was flown (detect and
+    triage runs; confirmation reruns, rep >= 100, left out)."""
+    good, bad = load_metrics(base_dir), load_metrics(bad_dir, max_rep=100)
+    cands = {n: load_metrics(inv_dir / "fix" / n, max_rep=100) for n in names
+             if (inv_dir / "fix" / n).is_dir()}
+    rows = []
+    for name, metric in sorted({(w[0], w[1]) for w in wanted}):
+        rows.append({"scenario": name, "metric": metric, "good": _mean(good.get(name, []), metric),
+                     "bad": _mean(bad.get(name, []), metric),
+                     "candidates": {n: _mean(c.get(name, []), metric) for n, c in cands.items()}})
+    return rows
 
 
 def feedback(history: list[dict]) -> str:
@@ -339,17 +358,19 @@ def fix(inv_dir: Path, backend=None, attempts: int = 3, lang: str | None = None,
         return r
 
     try:
-        # scenarios edited since the investigation: its flights are no longer comparable
-        names = sorted(load_metrics(base_dir))
+        # scenarios edited since the investigation: its flights are no longer comparable; a
+        # baseline pruned since (nightly backfill, disk cleanup) is flown again the same way
+        pruned = not load_metrics(base_dir)
+        names = sorted(load_metrics(bad_dir) if pruned else load_metrics(base_dir))
         only = None if set(names) == set(suite.tests()) else names
-        if baseline_dir(suite, rec["good"], only) != base_dir:
+        if pruned or baseline_dir(suite, rec["good"], only) != base_dir:
             log(t("log.fix.rebase"))
             good_bin, _ = build(repo, rec["good"], log=log, vehicle=vehicle)
             bad_bin, _ = build(repo, bad, log=log, vehicle=vehicle)
             if good_bin is None or bad_bin is None:
                 raise ExplainError(t("err.fix.bothbuild"))
             base_dir = baseline(SimpleNamespace(log=log), suite, good_bin, rec["good"], only, jobs)
-            bad_dir = inv_dir / "fix" / "bad"
+            bad_dir = inv_dir / "fix" / f"bad-{base_dir.name}"
             if not (bad_dir / "DONE").exists():
                 suite.run(bad_bin, bad_dir, only=targets, n=TRIAGE_RUNS, jobs=jobs, log=None)
                 rest = [t for t in load_metrics(base_dir) if t not in targets]
@@ -358,7 +379,8 @@ def fix(inv_dir: Path, backend=None, attempts: int = 3, lang: str | None = None,
                 (bad_dir / "DONE").write_text("")
             _, bad_rep = judge(bad_dir, base_dir, dirs=suite.dirs)
             bad_found = symptom(bad_rep, list(bad_rep))
-            wanted &= symptom(bad_rep, targets)
+            now = symptom(bad_rep, targets)
+            wanted = wanted & now if wanted else now
             if not wanted:
                 raise ExplainError(t("err.fix.norepro"))
         if picks:
@@ -392,11 +414,16 @@ def fix(inv_dir: Path, backend=None, attempts: int = 3, lang: str | None = None,
         git(repo, "checkout", "-q", start_ref)
         lock.close()
     data = {"investigation": stamp, "culprit": cul["culprit"], "targets": targets,
-            "wanted": sorted(wanted), "candidates": results}
+            "wanted": sorted(wanted), "candidates": results,
+            "before_after": before_after(inv_dir, base_dir, bad_dir, wanted, [r["name"] for r in results])}
     (inv_dir / "fix.json").write_text(json.dumps(data, indent=1, ensure_ascii=False, default=str))
     path = inv_dir / "fix.md"
     path.write_text(render(data, lang))
     return path
+
+
+def _num(x) -> str:
+    return "-" if x is None else f"{x:.3g}" if abs(x) >= 1e-3 or x == 0 else f"{x:.2e}"
 
 
 def render(data: dict, lang: str | None = None) -> str:
@@ -407,6 +434,15 @@ def render(data: dict, lang: str | None = None) -> str:
     for c in data["candidates"]:
         outcome = L("outcome." + c["outcome"]) if "fix.outcome." + c["outcome"] in MSG["en"] else c["outcome"]
         out.append(f"| {c['name']} | {c.get('source', '')} | {outcome} | {c.get('diff_lines', '')} |")
+    rows = data.get("before_after") or []
+    if rows:
+        names = list(rows[0]["candidates"])
+        out += ["", L("ba.title"), "", f"_{L('ba.note')}_", "",
+                "| " + " | ".join([L("ba.metric"), "good", "bad", *names]) + " |",
+                "|" + "---|" * (3 + len(names))]
+        for r in rows:
+            out.append("| " + " | ".join([f"{r['scenario']} {r['metric']}", _num(r["good"]), _num(r["bad"]),
+                                          *(_num(r["candidates"][n]) for n in names)]) + " |")
     for c in data["candidates"]:
         out += ["", f"## {c['name']}", ""]
         if c.get("rationale"):

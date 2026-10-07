@@ -65,6 +65,12 @@ class PureChecks(unittest.TestCase):
         # optional modules only warn
         self.assertEqual(doctor.check_module("numpy", "autotest", required=False, installed=None).status, WARN)
 
+    def test_pkg_resources(self):
+        self.assertEqual(doctor.check_pkg_resources(found=True).status, OK)
+        c = doctor.check_pkg_resources(found=False)
+        self.assertEqual(c.status, FAIL)
+        self.assertIn("setuptools<81", c.hint)
+
     def test_python_deps_use_installed_versions(self):
         names = [c.name for c in doctor.python_deps()]
         self.assertTrue(any(n.startswith("empy") for n in names))

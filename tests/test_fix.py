@@ -193,6 +193,24 @@ class FixPromptTest(unittest.TestCase):
         self.assertIn("The full battery is flown only for the scenarios suite.", md)
         self.assertEqual(fx.render(data, "en"), fx.render(data, "en"))
 
+    def test_before_after(self):
+        root = Path(tempfile.mkdtemp())
+
+        def put(d, values, start=0):
+            d.mkdir(parents=True, exist_ok=True)
+            for i, v in enumerate(values, start):
+                (d / f"pilot_sticks.{i}.metrics.json").write_text(json.dumps({"stop_m": v}))
+        put(root / "base", [1.0, 3.0])
+        put(root / "inv" / "bad", [5.0])
+        put(root / "inv" / "bad", [99.0], start=100)       # triage rerun: not in the mean
+        put(root / "inv" / "fix" / "revert", [2.0])
+        rows = fx.before_after(root / "inv", root / "base", root / "inv" / "bad",
+                               {("pilot_sticks", "stop_m", "drift", "-")}, ["revert", "llm-1"])
+        self.assertEqual(rows, [{"scenario": "pilot_sticks", "metric": "stop_m", "good": 2.0, "bad": 5.0,
+                                 "candidates": {"revert": 2.0}}])
+        md = fx.render({"candidates": [], "before_after": rows}, "en")
+        self.assertIn("| pilot_sticks stop_m | 2 | 5 | 2 |", md)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,32 @@
+name: fence_avoid
+# The pilot pushes towards a circular fence and up towards its height limit; avoidance must stop
+# the vehicle short of both (LOITER, then ALT_HOLD), and slide along the edge with roll held.
+# Added 2026-10-06 from a year of weekly coverage (changed lines no scenario flew: AC_Avoid,
+# AC_Fence); not written from any benchmark case.
+params: {FENCE_ENABLE: 1, FENCE_TYPE: 3, FENCE_RADIUS: 50, FENCE_ALT_MAX: 30}
+steps:
+  - takeoff: 10
+  - sticks: {throttle: 1500}
+  - mode: LOITER
+  - fly: 3
+  - sticks: {pitch: 1200}
+  - fly: 25
+  - sticks: {roll: 1700}
+  - fly: 15
+  - release: 10
+  - sticks: {pitch: 1750}
+  - fly: 8
+  - release: 10
+  - mode: ALT_HOLD
+  - sticks: {pitch: 1350}
+  - fly: 4
+  - release: 10
+  - sticks: {throttle: 1850}
+  - fly: 15
+  - sticks: {throttle: 1500}
+  - fly: 3
+  - mode: LAND
+  - wait_disarm: 150
+expect:
+  range_max_m: {lt: 50}
+  alt_max_m: {lt: 30}

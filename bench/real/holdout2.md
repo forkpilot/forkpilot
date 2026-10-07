@@ -29,3 +29,18 @@ the results directory is not tracked. Machine time: scenarios 22 min, autotest 1
 
 Give each case a realistic range (for example, the last release tag or a fork's merge window
 before the culprit to some commits after it), so that the bisect is tested too.
+
+## Later check: `investigate --targeted` on the three cases the scenarios missed (2026-10-06)
+
+Not blind: `--targeted` was designed after holdout2 and with these cases in view, so this is a
+check of the design, not a holdout result. Log: `results/targeted-holdout2.log`. Same ranges as
+above; 8 min machine time (baselines cached).
+
+| Case | Flights added from the impact | Result |
+|---|---|---|
+| loiter_coord_turn_brake | `copter_sticks__ZIGZAG` (ZIGZAG uses AC_Loiter, no scenario flew it) | DRIFT, consistent 8/8: ZigZag speed, stop distance and stop time. Same mode as the autotest symptom. Range is 1 commit, so detection only. |
+| mis_options_bitmask | `auto_mission` with `MIS_OPTIONS`=1 and =4 | nothing found. Bit 0 acts only at reboot and bit 2 only after a mid-mission landing; `auto_mission` has neither. |
+| plane_training_shaping_stale | stick templates for ACRO, FBWB, STABILIZE, TRAINING | DRIFT in all four and in three mission scenarios, range of 12 named. The whole PR changes the fixed-wing controllers, so the TRAINING drift cannot be told apart from the rest. Still uncertain. |
+
+Reading: the impact picked the right flight in all three cases. The flight showed the bug in one
+(loiter). A parameter variant only helps when the scenario reaches the code path the bit guards.

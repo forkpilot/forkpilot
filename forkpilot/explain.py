@@ -6,6 +6,7 @@ nothing else. Backends: Anthropic (ANTHROPIC_API_KEY) or any OpenAI-compatible e
 """
 from __future__ import annotations
 
+import http.client
 import json
 import os
 import urllib.error
@@ -124,8 +125,13 @@ class LocalBackend:
         try:
             with urllib.request.urlopen(self.request(system, evidence, schema), timeout=self.timeout) as r:
                 data = json.load(r)
-            return data["choices"][0]["message"]["content"]
-        except (urllib.error.URLError, OSError) as e:
+            choice = data["choices"][0]
+            if not choice["message"].get("content"):
+                # a reasoning model that spent its output budget thinking returns no content
+                raise ExplainError(t("err.explain.badresp", e=f"empty content (finish_reason "
+                                     f"{choice.get('finish_reason')!r})"))
+            return choice["message"]["content"]
+        except (urllib.error.URLError, OSError, http.client.HTTPException) as e:
             raise ExplainError(t("err.explain.unreach", url=self.base_url, e=e))
         except (KeyError, IndexError, ValueError) as e:
             raise ExplainError(t("err.explain.badresp", e=repr(e)))

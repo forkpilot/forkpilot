@@ -15,6 +15,10 @@ from .config import CCACHE, ROOT, WORK
 CACHE = WORK / "builds" / "cache"
 
 
+# build errors that mean a Python module is missing where ForkPilot runs, not a broken commit
+PYTHON_MODULE_ERRORS = ("No module named", "you need to install empy", "please install dronecan")
+
+
 def git(repo: Path, *args: str) -> str:
     return subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True,
                           text=True).stdout.strip()
@@ -110,6 +114,9 @@ def build(repo: Path, ref: str, log=print, vehicle: str = "copter") -> tuple[Pat
         info["error"] = (proc.stdout + proc.stderr)[-3000:]
         if log:
             log(i18n.t("log.build.failed", sha=sha[:10] + _tag(v), s=info["seconds"]))
+            log(i18n.t("log.build.see", path=CACHE / sha / log_name))
+            if any(m in info["error"] for m in PYTHON_MODULE_ERRORS):
+                log(i18n.t("log.build.pymod"))
         return None, info
     shutil.copy2(repo / "build" / "sitl" / "bin" / v.binary, cached)
     # SITL defaults belong to the binary's commit, not to whatever the checkout holds when it flies

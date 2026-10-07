@@ -7,6 +7,10 @@
   python -m forkpilot.cli replaycheck original.bin replay.bin --start 50.9
   python -m forkpilot.cli verdict     --candidate results/cand --baseline results/base
   python -m forkpilot.cli investigate --repo ardupilot --good <sha> --bad <sha>
+  python -m forkpilot.cli nightly     --repo clone --vehicle copter plane   # new upstream commits since last night
+  python -m forkpilot.cli calibrate   [--backfill nightly/backfill.jsonl] [--write]
+  python -m forkpilot.cli coverage    --good G --bad B [--repo R] [--vehicle copter] [--scenario NAME ...]
+  python -m forkpilot.cli impact      --repo ardupilot --good <sha> --bad <sha> [--vehicle plane] [--json] [--plan]
   python -m forkpilot.cli explain     investigations/<stamp> [--backend local] [--lang en]
   python -m forkpilot.cli fix         investigations/<stamp> [--backend anthropic|local]
   python -m forkpilot.cli report      investigations/<stamp>      # writes report.html there
@@ -17,6 +21,7 @@ from __future__ import annotations
 import argparse
 import json
 import signal
+import subprocess
 import sys
 from pathlib import Path
 
@@ -130,7 +135,7 @@ def cmd_investigate(a):
         rec = investigate(Path(repo), a.good, a.bad, only=a.only, jobs=a.jobs,
                           reported=a.reported or (), suite=a.suite, vehicle=vehicle,
                           explain=(a.explain, a.model, i18n.lang()) if a.explain else None,
-                          scenario_dirs=_dirs(a))
+                          scenario_dirs=_dirs(a), targeted=a.targeted, coverage=a.coverage)
     except ScenarioSetError as e:
         sys.exit(t("cli.error", e=e))
     print("\n" + t("cli.record", path=rec.path))
@@ -147,6 +152,25 @@ def cmd_investigate(a):
         _write_report(rec.dir, rec.log)
 
 
+def cmd_nightly(a):
+    from . import nightly
+    from .scenario import ScenarioSetError
+    if not (Path(a.repo) / ".git").exists():
+        sys.exit(f"error: {a.repo} is not a git checkout; pass --repo <dedicated clone of your fork>")
+    try:
+        if a.backfill:
+            nightly.backfill(Path(a.repo), a.remote, a.branch, a.vehicle, a.suite, a.backfill,
+                             a.until, a.step_days, a.jobs, a.dry_run, a.keep_telemetry,
+                             coverage=a.coverage)
+        else:
+            nightly.run(Path(a.repo), a.remote, a.branch, a.vehicle, a.suite, a.max_commits,
+                        a.first_range, a.jobs, a.dry_run, coverage=a.coverage)
+    except (RuntimeError, ScenarioSetError, subprocess.CalledProcessError) as e:
+        sys.exit(t("cli.error", e=e))
+    if a.dry_run:
+        print(t("nightly.dry"))
+
+
 def _write_report(inv_dir, log=print):
     """A report failure never costs the investigation."""
     from .report import ReportError, write
@@ -154,6 +178,45 @@ def _write_report(inv_dir, log=print):
         log(t("cli.report", path=write(inv_dir)))
     except (ReportError, OSError) as e:
         log(t("cli.report_skipped", e=e))
+
+
+def cmd_impact(a):
+    from . import impact
+    repo = a.repo or ROOT / "ardupilot"
+    if not (Path(repo) / ".git").exists():
+        sys.exit(f"error: {repo} is not a checkout of your fork; pass --repo <path>")
+    try:
+        report = impact.impact(Path(repo), a.good, a.bad, a.vehicle)
+    except impact.ImpactError as e:
+        sys.exit(t("cli.error", e=e))
+    text = impact.lines(report)
+    if a.plan:
+        from . import targeted
+        p = targeted.plan(report, a.vehicle)
+        report["plan"] = targeted.summary(p)
+        text += [""] + targeted.lines(p)
+    print(json.dumps(report, indent=2) if a.json else "\n".join(text))
+
+
+def cmd_calibrate(a):
+    from . import calibrate
+    from .nightly import nightly_dir
+    src = Path(a.backfill) if a.backfill else nightly_dir() / "backfill.jsonl"
+    if not src.exists():
+        sys.exit(f"no backfill results at {src}: run `nightly --backfill` first")
+    calibrate.main(src, write=a.write)
+
+
+def cmd_coverage(a):
+    from . import coverage
+    repo = Path(a.repo or ROOT / "ardupilot")
+    if not (repo / ".git").exists():
+        sys.exit(f"error: {repo} is not a checkout of your fork; pass --repo <path>")
+    try:
+        res = coverage.measure(repo, a.good, a.bad, a.vehicle, a.scenario or None, jobs=a.jobs)
+    except (coverage.CoverageError, subprocess.CalledProcessError) as e:
+        sys.exit(t("cli.error", e=e))
+    print(json.dumps(res, indent=1) if a.json else "\n".join(coverage.summary_lines(res)))
 
 
 def cmd_explain(a):
@@ -273,6 +336,12 @@ def main(argv=None):
                     help="px4: fly the PX4 multicopter scenarios (`autopilot: px4`) on PX4's SIH simulator")
     iv.add_argument("--suite", choices=["scenarios", "autotest"], default="scenarios",
                     help="ForkPilot's scenarios or ArduPilot's own autotest suite")
+    iv.add_argument("--targeted", action="store_true",
+                    help="also fly scenarios picked from the range's impact: parameter variants and stick "
+                         "templates for affected modes no scenario flies (`impact --plan` lists them)")
+    iv.add_argument("--coverage", action="store_true",
+                    help="also measure which changed lines (of the culprit, else of the range) the "
+                         "scenarios run: one gcov build and one flight per scenario, about 3 min")
     iv.add_argument("-j", "--jobs", type=int, default=JOBS)
     iv.add_argument("--explain", choices=["anthropic", "local"],
                     help="after localizing, write explanation.md with this LLM backend (off by default)")
@@ -282,6 +351,56 @@ def main(argv=None):
     iv.add_argument("--fix", choices=["revert", "anthropic", "local"],
                     help="after localizing, try fix candidates: revert only, or revert + this LLM")
     iv.set_defaults(fn=cmd_investigate)
+    nt = sub.add_parser("nightly", help="investigate the upstream commits that landed since the last check")
+    nt.add_argument("--repo", required=True, help="a dedicated clone (its tree is checked out and built in)")
+    nt.add_argument("--remote", default="origin")
+    nt.add_argument("--branch", default="master")
+    nt.add_argument("--vehicle", nargs="+", choices=["copter", "plane"], default=["copter"],
+                    help="vehicles to check, one investigation each (default: copter)")
+    nt.add_argument("--suite", choices=["scenarios", "autotest"], default="scenarios")
+    nt.add_argument("--max-commits", type=int, default=60,
+                    help="a longer range is still investigated, only noted in the record")
+    nt.add_argument("--first-range", type=int, default=20,
+                    help="first run: check this many commits behind the branch tip")
+    nt.add_argument("-j", "--jobs", type=int, default=JOBS)
+    nt.add_argument("--coverage", action="store_true",
+                    help="also measure which changed lines the scenarios run (about 3 min per range)")
+    nt.add_argument("--dry-run", action="store_true", help="fetch, print the ranges, build and fly nothing")
+    nt.add_argument("--lang", choices=i18n.LANGS, default=argparse.SUPPRESS, help="same as the global --lang")
+    nt.add_argument("--backfill", metavar="YYYY-MM-DD",
+                    help="check history since this day as if the nightly had run every day; "
+                         "resumable, results in $FP_HOME/nightly/backfill.jsonl")
+    nt.add_argument("--until", metavar="YYYY-MM-DD", help="with --backfill: last day (default: today)")
+    nt.add_argument("--keep-telemetry", action="store_true",
+                    help="with --backfill: keep raw telemetry of ranges without a localized regression")
+    nt.add_argument("--step-days", type=int, default=1, help="with --backfill: one range per N days with commits")
+    nt.set_defaults(fn=cmd_nightly)
+    im = sub.add_parser("impact", help="which modes and parameters a commit range touches, and which "
+                        "of them the scenarios fly (static: no build, no flight)")
+    im.add_argument("--repo", help="your fork's checkout (default: ardupilot); only read, never changed")
+    im.add_argument("--good", required=True)
+    im.add_argument("--bad", required=True)
+    im.add_argument("--vehicle", choices=("copter", "plane"), default="copter",
+                    help="plane covers QuadPlane too (default copter)")
+    im.add_argument("--json", action="store_true", help="machine-readable output")
+    im.add_argument("--plan", action="store_true",
+                    help="also print the scenarios `investigate --targeted` would add, and why (flies nothing)")
+    im.set_defaults(fn=cmd_impact)
+    cb = sub.add_parser("calibrate", help="per-metric noise tolerances from a weekly backfill "
+                        "(how much each metric moves between builds without a behaviour change)")
+    cb.add_argument("--backfill", help="backfill.jsonl (default: $FP_HOME/nightly/backfill.jsonl)")
+    cb.add_argument("--write", action="store_true", help="write forkpilot/noise.json (the oracle reads it)")
+    cb.set_defaults(fn=cmd_calibrate)
+    cv = sub.add_parser("coverage", help="which changed lines of a commit range the scenarios run "
+                        "(gcov build of the bad commit, one flight per scenario)")
+    cv.add_argument("--repo", help="your fork's checkout (default: ardupilot); builds in a separate worktree")
+    cv.add_argument("--good", required=True)
+    cv.add_argument("--bad", required=True)
+    cv.add_argument("--vehicle", choices=("copter", "plane"), default="copter")
+    cv.add_argument("--scenario", action="append", help="fly only this scenario (repeatable)")
+    cv.add_argument("-j", "--jobs", type=int, default=JOBS)
+    cv.add_argument("--json", action="store_true", help="machine-readable output")
+    cv.set_defaults(fn=cmd_coverage)
     ex = sub.add_parser("explain", help="LLM explanation of an investigation's evidence.md")
     ex.add_argument("dir", help="investigation directory containing evidence.md")
     ex.add_argument("--backend", dest="explain_backend", choices=["anthropic", "local"], default="anthropic",

@@ -176,7 +176,7 @@ def run_scenario(path: Path, ardupilot: Path | None = None, speedup: int = 10,
     params = {**(extra_params or {}), **spec.get("params", {})}
     kw = {"ardupilot": ardupilot} if ardupilot else {}
     sitl = Sitl(speedup=speedup, instance=instance, params=params, binary_path=binary,
-                vehicle=v.binary, model=frame.model, **kw)
+                vehicle=v.binary, model=frame.model, boot_params=spec.get("boot_params") or {}, **kw)
     sitl.defaults = vehicles.defaults_for(frame, sitl.binary, sitl.ardupilot)
     with sitl:
         r = PlaneRunner(sitl, run, frame_name)

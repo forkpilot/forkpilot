@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "forkpilot"
-version = "0.1.0"
+version = "0.2.0"
 description = "Find, localize and fix flight-behaviour regressions in company forks of ArduPilot and PX4 (SITL, on-premises)"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -24,6 +24,8 @@ dependencies = [
     # ArduPilot's waf build imports these; empy 4 breaks it
     "empy==3.3.4",
     "pexpect>=4.8",
+    # DroneCAN's DSDL generator in older ArduPilot (e.g. 2025-08) imports pkg_resources; setuptools 81 dropped it
+    "setuptools<81",
 ]
 
 [project.urls]

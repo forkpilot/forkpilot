@@ -1,0 +1,19 @@
+name: guided_fast
+# GUIDED at higher speed: position targets that climb and descend while moving, a sharp corner,
+# then velocity reversals and vertical velocity commands. Added 2026-10-06 from a year of weekly
+# coverage (changed lines no scenario flew: AC_PosControl, AC_WPNav, SCurve, mode_guided); not
+# written from any benchmark case.
+steps:
+  - takeoff: 15
+  - goto: [80, 0, 30]
+  - goto: [80, 60, 10]
+  - goto: [0, 0, 15]
+  - velocity: {vx: 6, frame: local, seconds: 6}
+  - velocity: {vx: -6, frame: local, seconds: 6}
+  - velocity: {vz: -2, frame: local, seconds: 5}
+  - velocity: {vz: 1.5, vy: 3, frame: body, seconds: 5}
+  - hold: 5
+  - mode: LAND
+  - wait_disarm: 150
+expect:
+  goto_overshoot_max_m: {lt: 3.0}

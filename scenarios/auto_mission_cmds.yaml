@@ -1,0 +1,26 @@
+name: auto_mission_cmds
+# AUTO mission beyond plain waypoints: speed changes, spline legs, a heading command, a delay,
+# loiter turns and loiter time, and a mission landing. Added 2026-10-06 from a year of weekly
+# coverage (changed lines no scenario flew: mode_auto, SCurve/spline, WPNav); not written from
+# any benchmark case. A plain waypoint before the delay: a spline followed by NAV_DELAY reads
+# the delay as a location and flies into the ground (found here 2026-10-06, master and 2025-08).
+steps:
+  - mission:
+      - [30, 0, 20]
+      - speed: 8
+      - spline: [60, 20, 25]
+      - spline: [60, 60, 20]
+      - spline: [30, 80, 15]
+      - [10, 80, 20]
+      - yaw: 270
+      - delay: 3
+      - loiter_turns: {at: [0, 60, 20], turns: 2, radius: 15}
+      - loiter_time: {at: [0, 30, 20], seconds: 5}
+      - speed: 4
+      - [0, 0, 20]
+      - land: [0, 0]
+  - takeoff: 20
+  - mode: AUTO
+  - wait_disarm: 400
+expect:
+  landing_offset_m: {lt: 2.0}

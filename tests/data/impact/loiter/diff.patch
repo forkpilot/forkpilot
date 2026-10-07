@@ -1,0 +1,43 @@
+diff --git a/libraries/AC_WPNav/AC_Loiter.cpp b/libraries/AC_WPNav/AC_Loiter.cpp
+index cbeee8efa4..28956fe811 100644
+--- a/libraries/AC_WPNav/AC_Loiter.cpp
++++ b/libraries/AC_WPNav/AC_Loiter.cpp
+@@ -16,0 +17 @@ extern const AP_HAL::HAL& hal;
++#define LOITER_DEFAULT_OPTIONS              1       // Enable Coordinated Turn by default.
+@@ -74,0 +76,7 @@ const AP_Param::GroupInfo AC_Loiter::var_info[] = {
++    // @Param: OPTIONS
++    // @DisplayName: Loiter mode options
++    // @Description: Enables optional Loiter mode behaviors
++    // @Bitmask: 0: Enable Coordinated turns
++    // @User: Standard
++    AP_GROUPINFO("OPTIONS", 7, AC_Loiter, _options, LOITER_DEFAULT_OPTIONS),
++
+@@ -182,2 +190,9 @@ void AC_Loiter::set_pilot_desired_acceleration_rad(float euler_roll_angle_rad, f
+-    _predicted_accel_ne_mss.x = predicted_accel_neu_m.x;
+-    _predicted_accel_ne_mss.y = predicted_accel_neu_m.y;
++    _predicted_accel_ne_mss = predicted_accel_neu_m.xy();
++
++    if (loiter_option_is_set(LoiterOption::COORDINATED_TURN_ENABLED)) {
++        Vector3f target_ang_vel_rads = _attitude_control.get_attitude_target_ang_vel();
++        Vector3f desired_velocity_ms = _pos_control.get_vel_desired_NEU_ms();
++        Vector2f turn_accel_ne_mss = Vector2f(-desired_velocity_ms.y * target_ang_vel_rads.z, desired_velocity_ms.x * target_ang_vel_rads.z);
++        _desired_accel_ne_mss += turn_accel_ne_mss;
++        _predicted_accel_ne_mss += turn_accel_ne_mss;
++    }
+@@ -268,0 +284,4 @@ void AC_Loiter::sanity_check_params()
++bool AC_Loiter::loiter_option_is_set(LoiterOption option) const {
++    return (_options & int8_t(option)) != 0;
++}
++
+diff --git a/libraries/AC_WPNav/AC_Loiter.h b/libraries/AC_WPNav/AC_Loiter.h
+index fe0b3afe0e..28703698d7 100644
+--- a/libraries/AC_WPNav/AC_Loiter.h
++++ b/libraries/AC_WPNav/AC_Loiter.h
+@@ -140,0 +141,7 @@ protected:
++    AP_Int8     _options;               // Loiter options bit mask
++
++    // Bitfields of LOITER_OPTIONS
++    enum class LoiterOption {
++        COORDINATED_TURN_ENABLED    = (1U << 0),    // Enable Coordinated Turn
++    };
++    bool loiter_option_is_set(LoiterOption option) const;

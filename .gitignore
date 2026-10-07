@@ -2,7 +2,10 @@
 ardupilot/
 builds/
 results/
+coverage/
 investigations/
+nightly/
+targeted/
 .venv/
 __pycache__/
 *.pyc

@@ -3,14 +3,18 @@
 FAIL  : an absolute rule from the scenario's `expect:` block is violated,
         or the scenario did not complete.
 DRIFT : no rule violated, but a metric moved outside the band observed across
-        baseline runs (mean ± max(k·std, rel_tol·|mean|, abs_tol)).
+        baseline runs (mean ± max(k·std, rel_tol·|mean|, abs_tol)); abs_tol is per metric
+        where `forkpilot calibrate` measured more noise between builds (noise.json).
 PASS  : otherwise.
 """
 from __future__ import annotations
 
+import json
 import math
 import statistics as st
 from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
 
 from .i18n import t
 
@@ -48,6 +52,32 @@ def check_rules(metrics: dict, expect: dict) -> list[Finding]:
     return out
 
 
+NOISE_FILE = Path(__file__).with_name("noise.json")
+
+
+@lru_cache(maxsize=1)
+def _noise() -> dict:
+    """Backfill tolerances ("tolerance"), raised by A/A ones ("aa") for scenarios too new to have
+    enough backfill pairs."""
+    data = json.loads(NOISE_FILE.read_text()) if NOISE_FILE.exists() else {}
+    out = {name: dict(ms) for name, ms in data.get("tolerance", {}).items()}
+    for name, ms in data.get("aa", {}).items():
+        for metric, v in ms.items():
+            out.setdefault(name, {})[metric] = max(v, out.get(name, {}).get(metric, 0.0))
+    return out
+
+
+def noise_tol(scenario: str | None, metric: str, default: float = 0.05) -> float:
+    """Absolute tolerance of a metric: the default, or more where `forkpilot calibrate` measured
+    that the metric moves that much between builds of unchanged behaviour (noise.json). A
+    targeted variant (`auto_mission__MIS_OPTIONS_1`) takes the tolerance of its scenario."""
+    if not scenario:
+        return default
+    table = _noise()
+    tol = (table.get(scenario) or table.get(scenario.split("__")[0]) or {}).get(metric)
+    return max(default, tol) if tol is not None else default
+
+
 def band(values: list[float], k=3.0, rel_tol=0.10, abs_tol=0.05):
     mean = st.fmean(values)
     sd = st.stdev(values) if len(values) > 1 else 0.0
@@ -55,7 +85,8 @@ def band(values: list[float], k=3.0, rel_tol=0.10, abs_tol=0.05):
     return mean - half, mean + half
 
 
-def check_drift(candidate: list[dict], baseline: list[dict], **tol) -> list[Finding]:
+def check_drift(candidate: list[dict], baseline: list[dict], scenario: str | None = None,
+                **tol) -> list[Finding]:
     out = []
     names = set().union(*baseline) & set().union(*candidate)
     for name in sorted(names - {"completed"}):
@@ -65,7 +96,7 @@ def check_drift(candidate: list[dict], baseline: list[dict], **tol) -> list[Find
         cand = [m[name] for m in candidate if name in m and m[name] is not None and math.isfinite(m[name])]
         if not base or not cand:
             continue
-        lo, hi = band(base, **tol)
+        lo, hi = band(base, **{**tol, "abs_tol": noise_tol(scenario, name, tol.get("abs_tol", 0.05))})
         value = st.fmean(cand)
         if not lo <= value <= hi:
             out.append(Finding(name, "drift", value, f"[{lo:.3f}, {hi:.3f}]",
@@ -120,12 +151,13 @@ def confirm_shift(base: list[float], cand: list[float], side: str, alpha=0.01,
     return shift_p(base, cand, side) < alpha
 
 
-def verdict(candidate: list[dict], expect: dict, baseline: list[dict] | None = None):
+def verdict(candidate: list[dict], expect: dict, baseline: list[dict] | None = None,
+            scenario: str | None = None):
     fails = [f for m in candidate for f in check_rules(m, expect)]
     # report each failing metric once
     seen = set()
     fails = [f for f in fails if not (f.metric in seen or seen.add(f.metric))]
     if fails:
         return "FAIL", fails
-    drift = check_drift(candidate, baseline) if baseline else []
+    drift = check_drift(candidate, baseline, scenario) if baseline else []
     return ("DRIFT" if drift else "PASS"), drift
